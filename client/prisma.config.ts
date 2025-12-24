@@ -1,6 +1,6 @@
 // client/prisma.config.ts
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -8,8 +8,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // Using the 'env' helper is the recommended way in Prisma 7
-    // This ensures the DATABASE_URL is correctly picked up by the CLI for db push/pull
-    url: env("DATABASE_URL"), 
+    // Using a placeholder URL during build since env vars may not be available
+    // This is acceptable for client-side generation
+    url: process.env.DATABASE_URL || "postgresql://placeholder:placeholder@localhost:5432/placeholder", 
   },
 });
