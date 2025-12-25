@@ -23,6 +23,10 @@ export async function GET(req: NextRequest) {
     return Response.json({ role: user.role });
   } catch (error) {
     console.error("Error fetching user role:", error);
+    // Handle database connection errors gracefully
+    if (error instanceof Error && error.message.includes('connection')) {
+      return Response.json({ error: "Database connection error" }, { status: 503 });
+    }
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

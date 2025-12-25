@@ -14,8 +14,12 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Bridge Clerk and Prisma
-  await syncUser();
+  // Bridge Clerk and Prisma - handle errors gracefully
+  try {
+    await syncUser();
+  } catch (error) {
+    console.error('Error in syncUser during layout rendering:', error);
+  }
 
   return (
     <ClerkProvider>
