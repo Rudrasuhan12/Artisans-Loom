@@ -14,24 +14,17 @@ export async function onboardCustomerAction(formData: FormData) {
   const craftTypes = formData.get("craftTypes")?.toString().split(",").map(s => s.trim()) || [];
   const budget = formData.get("budget")?.toString();
 
-  try {
-    // Update the user record in Prisma
-    await prisma.user.update({
-      where: { clerkId: userId },
-      data: {
-        role: "CUSTOMER",
-        preferences: {
-          favoriteCrafts: craftTypes,
-          budget: budget
-        }
-      },
-    });
-  } catch (error) {
-    console.error('Error updating user in onboardCustomerAction:', error);
-    throw new Error('Failed to update user profile');
-  }
+  await prisma.user.update({
+    where: { clerkId: userId },
+    data: {
+      role: "CUSTOMER",
+      preferences: {
+        favoriteCrafts: craftTypes,
+        budget: budget
+      }
+    },
+  });
 
-  // Redirect to the shop once finished
   redirect("/shop");
 }
 
@@ -42,34 +35,26 @@ export async function onboardArtisanAction(formData: FormData) {
     throw new Error("Unauthorized");
   }
 
-  const businessName = formData.get("businessName")?.toString();
-  const craftType = formData.get("craftType")?.toString();
-  const yearsOfExperience = parseInt(formData.get("yearsOfExperience")?.toString() || "0");
-  const location = formData.get("location")?.toString();
-  const bio = formData.get("bio")?.toString();
+  const profileData = {
+    businessName: formData.get("businessName")?.toString(),
+    craftType: formData.get("craftType")?.toString(),
+    yearsOfExperience: parseInt(formData.get("yearsOfExperience")?.toString() || "0"),
+    location: formData.get("location")?.toString(),
+    bio: formData.get("bio")?.toString(),
+  };
 
-  try {
-    // Update the user record in Prisma
-    await prisma.user.update({
-      where: { clerkId: userId },
-      data: {
-        role: "ARTISAN",
-        profile: {
-          create: {
-            businessName,
-            craftType,
-            yearsOfExperience,
-            location,
-            bio
-          }
-        }
+  await prisma.user.update({
+    where: { clerkId: userId },
+    data: {
+      role: "ARTISAN",
+      profile: {
+        upsert: {
+          create: profileData,
+          update: profileData,
+        },
       },
-    });
-  } catch (error) {
-    console.error('Error updating user in onboardArtisanAction:', error);
-    throw new Error('Failed to update user profile');
-  }
+    },
+  });
 
-  // Redirect to the shop once finished
-  redirect("/shop");
+  redirect("/artisan");
 }
