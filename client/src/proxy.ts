@@ -1,9 +1,10 @@
-// src/proxy.ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/onboarding(.*)']);
+const isProtectedRoute = createRouteMatcher([
+  '/dashboard(.*)', 
+  '/onboarding(.*)'
+]);
 
-// Export named 'proxy' for Next.js 16 compliance
 export const proxy = clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
     await auth.protect(); 

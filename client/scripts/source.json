@@ -1,0 +1,20 @@
+{
+  "dashboard": "Dashboard",
+  "products": "Products",
+  "analytics": "Analytics",
+  "settings": "Settings",
+  "yourProfile": "Your Profile",
+  "artisanAccount": "Artisan Account",
+  "discover": "Discover",
+  "regions": "Regions",
+  "artisans": "Artisans",
+  "stories": "Stories",
+  "auction": "Auction",
+  "signIn": "Sign In",
+  "signUp": "Sign Up",
+  "goToDashboard": "Go to Dashboard",
+  "heroTitle1": "The Artisan's",
+  "heroTitle2": "Loom",
+  "heroSubtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
+  "searchPlaceholder": "Search for crafts, artisans..."
+}
