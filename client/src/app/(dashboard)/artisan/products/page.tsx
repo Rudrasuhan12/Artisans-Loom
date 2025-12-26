@@ -6,24 +6,38 @@ import ProductCard from "@/components/artisan/ProductCard";
 import { RoyalDivider } from "@/components/ui/royal-divider";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation"; // Import redirect
 
 export default async function ProductsPage() {
   const { userId } = await auth();
-  const user = await prisma.user.findUnique({ where: { clerkId: userId! } });
-  const products = user 
-    ? await prisma.product.findMany({ where: { artisanId: user.id }, orderBy: { createdAt: 'desc' } }) 
-    : [];
+  
+  // --- FIX: Redirect if user is not logged in instead of crashing ---
+  if (!userId) {
+    redirect("/sign-in");
+  }
+  
+  // 1. Fetch User (Safe query now that we know userId exists)
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  
+  if (!user) return <div className="p-8 text-center text-red-500">User profile not found. Please contact support.</div>;
+  
+  // 2. Fetch Products
+  const products = await prisma.product.findMany({ 
+    where: { artisanId: user.id }, 
+    orderBy: { createdAt: 'desc' } 
+  });
 
   return (
     <div className="space-y-8 min-h-screen pb-20">
       
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#4A3526]">My Masterpieces</h1>
           <p className="text-[#8C7B70] mt-2 text-lg">Manage your inventory and showcase your heritage.</p>
         </div>
         <Link href="/artisan/products/add">
-          <Button className="h-14 px-8 rounded-full bg-linear-to-r from-[#2F334F] to-[#1A1D2E] text-[#D4AF37] border border-[#D4AF37]/30 shadow-xl group hover:shadow-2xl transition-all">
+          <Button className="h-14 px-8 rounded-full bg-gradient-to-r from-[#2F334F] to-[#1A1D2E] text-[#D4AF37] border border-[#D4AF37]/30 shadow-xl group hover:shadow-2xl transition-all">
             <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 flex items-center justify-center mr-3 group-hover:bg-[#D4AF37] group-hover:text-[#2F334F] transition-colors">
                <Plus className="w-5 h-5" />
             </div>
@@ -34,6 +48,7 @@ export default async function ProductsPage() {
 
       <div className="scale-100 opacity-50"><RoyalDivider /></div>
 
+      {/* Controls Toolbar */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5DCCA] flex flex-col md:flex-row gap-4 items-center">
          <div className="relative flex-1 w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8C7B70]" />
@@ -47,6 +62,7 @@ export default async function ProductsPage() {
          </Button>
       </div>
 
+      {/* Grid */}
       {products.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-[#D4AF37]/30">
            <p className="text-[#8C7B70] text-lg">Your loom is empty. Craft your first masterpiece!</p>
