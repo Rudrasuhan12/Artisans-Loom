@@ -1,35 +1,29 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import ProductCard from "@/components/artisan/ProductCard";
 import { RoyalDivider } from "@/components/ui/royal-divider";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
 
-const products = [
-  { id: 1, title: "Royal Banarasi Saree", price: "12,500", stock: 4, category: "Textile", image: "/p1.png" },
-  { id: 2, title: "Hand-carved Brass Idol", price: "4,200", stock: 12, category: "Metalwork", image: "/p2.png" },
-  { id: 3, title: "Kullu Wool Shawl", price: "2,800", stock: 8, category: "Textile", image: "/p3.png" },
-  { id: 4, title: "Madhubani Painting", price: "8,500", stock: 1, category: "Art", image: "/p4.png" },
-];
+export default async function ProductsPage() {
+  const { userId } = await auth();
+  const user = await prisma.user.findUnique({ where: { clerkId: userId! } });
+  const products = user 
+    ? await prisma.product.findMany({ where: { artisanId: user.id }, orderBy: { createdAt: 'desc' } }) 
+    : [];
 
-export default function ProductsPage() {
   return (
     <div className="space-y-8 min-h-screen pb-20">
-
+      
       <div className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
-          <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#4A3526]">
-            My Masterpieces
-          </h1>
-          <p className="text-[#8C7B70] mt-2 text-lg">
-            Manage your inventory and showcase your heritage.
-          </p>
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#4A3526]">My Masterpieces</h1>
+          <p className="text-[#8C7B70] mt-2 text-lg">Manage your inventory and showcase your heritage.</p>
         </div>
-
         <Link href="/artisan/products/add">
-          <Button className="h-14 px-8 rounded-full bg-linear-to-r from-[#2F334F] to-[#1A1D2E] text-[#D4AF37] border border-[#D4AF37]/30 shadow-xl hover:shadow-[#D4AF37]/20 transition-all hover:scale-105 group">
+          <Button className="h-14 px-8 rounded-full bg-linear-to-r from-[#2F334F] to-[#1A1D2E] text-[#D4AF37] border border-[#D4AF37]/30 shadow-xl group hover:shadow-2xl transition-all">
             <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 flex items-center justify-center mr-3 group-hover:bg-[#D4AF37] group-hover:text-[#2F334F] transition-colors">
                <Plus className="w-5 h-5" />
             </div>
@@ -53,12 +47,26 @@ export default function ProductsPage() {
          </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-        {products.map((product, idx) => (
-          <ProductCard key={product.id} index={idx} {...product} />
-        ))}
-      </div>
-
+      {products.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-[#D4AF37]/30">
+           <p className="text-[#8C7B70] text-lg">Your loom is empty. Craft your first masterpiece!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          {products.map((product, idx) => (
+            <ProductCard 
+              key={product.id} 
+              id={product.id}
+              index={idx}
+              title={product.title}
+              price={product.price.toString()}
+              stock={product.stock}
+              category={product.category}
+              image={product.images[0] || "/p1.png"}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
