@@ -1,30 +1,27 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Line, LineChart } from "recharts";
-import { IndianRupee, TrendingUp, Users, Package } from "lucide-react";
+import { IndianRupee, TrendingUp, Users, Package, Loader2 } from "lucide-react";
 import { RoyalDivider } from "@/components/ui/royal-divider";
-
-const salesData = [
-  { name: "Jan", total: 12000 },
-  { name: "Feb", total: 18000 },
-  { name: "Mar", total: 15000 },
-  { name: "Apr", total: 24000 },
-  { name: "May", total: 32000 },
-  { name: "Jun", total: 45000 },
-];
-
-const trafficData = [
-  { name: "Mon", visitors: 120 },
-  { name: "Tue", visitors: 150 },
-  { name: "Wed", visitors: 180 },
-  { name: "Thu", visitors: 220 },
-  { name: "Fri", visitors: 300 },
-  { name: "Sat", visitors: 450 },
-  { name: "Sun", visitors: 400 },
-];
+import { getAnalyticsData } from "@/app/actions/analytics";
 
 export default function AnalyticsPage() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      const result = await getAnalyticsData();
+      setData(result);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#D4AF37]" /></div>;
+
   return (
     <div className="space-y-8 min-h-screen pb-20">
       
@@ -37,9 +34,9 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { title: "Total Revenue", val: "₹1,45,000", icon: IndianRupee, color: "text-[#D97742]" },
-          { title: "Active Customers", val: "320", icon: Users, color: "text-[#2F334F]" },
-          { title: "Products Sold", val: "85", icon: Package, color: "text-[#D4AF37]" },
+          { title: "Total Revenue", val: `₹${data.totalRevenue.toLocaleString()}`, icon: IndianRupee, color: "text-[#D97742]" },
+          { title: "Active Customers", val: data.totalCustomers, icon: Users, color: "text-[#2F334F]" },
+          { title: "Products Sold", val: data.totalSold, icon: Package, color: "text-[#D4AF37]" },
         ].map((stat, i) => (
           <Card key={i} className="bg-[#FFFBF5] border border-[#E5DCCA] shadow-md hover:shadow-xl transition-all">
             <CardContent className="p-6 flex items-center justify-between">
@@ -60,12 +57,12 @@ export default function AnalyticsPage() {
         <Card className="bg-[#2C1810] border-[#D4AF37]/20 shadow-xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-[#FDFBF7] font-serif flex items-center gap-2">
-               <TrendingUp className="w-5 h-5 text-[#D4AF37]" /> Revenue Growth
+               <TrendingUp className="w-5 h-5 text-[#D4AF37]" /> Monthly Revenue
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-75">
+          <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesData}>
+              <BarChart data={data.chartData}>
                 <XAxis dataKey="name" stroke="#8C7B70" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#8C7B70" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
                 <Tooltip 
@@ -81,17 +78,17 @@ export default function AnalyticsPage() {
         <Card className="bg-white border-[#E5DCCA] shadow-lg">
           <CardHeader>
             <CardTitle className="text-[#4A3526] font-serif flex items-center gap-2">
-               <Users className="w-5 h-5 text-[#2F334F]" /> Store Visitors
+               <Package className="w-5 h-5 text-[#2F334F]" /> Units Sold
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-75">
+          <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trafficData}>
+              <LineChart data={data.chartData}>
                 <XAxis dataKey="name" stroke="#8C7B70" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#2C1810', color: '#fff', borderRadius: '8px', border: 'none' }}
                 />
-                <Line type="monotone" dataKey="visitors" stroke="#2F334F" strokeWidth={3} dot={{ r: 4, fill: "#D4AF37" }} />
+                <Line type="monotone" dataKey="count" stroke="#2F334F" strokeWidth={3} dot={{ r: 4, fill: "#D4AF37" }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

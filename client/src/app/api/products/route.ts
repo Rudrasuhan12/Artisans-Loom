@@ -5,11 +5,13 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     
+    const sort = searchParams.get("sort");
     const category = searchParams.get("category");
     const material = searchParams.get("material");
     const region = searchParams.get("region");
     const minPrice = parseFloat(searchParams.get("min") || "0");
     const maxPrice = parseFloat(searchParams.get("max") || "9999999");
+    const search = searchParams.get("q");
 
     const where: any = {
       price: { gte: minPrice, lte: maxPrice },
@@ -17,20 +19,32 @@ export async function GET(req: Request) {
 
     if (category && category !== "All") where.category = category;
 
-    // FIX 1: Material is a String[] in your schema
     if (material && material !== "All") {
       where.materials = { has: material };
     }
 
-    // FIX 2: Region is stored in Artisan -> Profile -> state
     if (region && region !== "All") {
       where.artisan = {
         profile: {
-          state: region
+          state: { contains: region, mode: 'insensitive' }
         }
       };
     }
 
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    let orderBy: any = { createdAt: 'desc' };
+
+    if (sort === 'price-low') {
+      orderBy = { price: 'asc' };
+    } else if (sort === 'price-high') {
+      orderBy = { price: 'desc' };
+    }
     const products = await prisma.product.findMany({
       where,
       include: {
@@ -38,7 +52,7 @@ export async function GET(req: Request) {
           include: { profile: true }
         }
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: orderBy,
     });
 
     return NextResponse.json(products);

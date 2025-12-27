@@ -1,203 +1,375 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link"; // ADDED: Link for navigation
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ShoppingCart, Filter, Search, MapPin } from "lucide-react";
+import { Loader2, ShoppingCart, Filter, Search, MapPin, X, Check, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
+
+const CATEGORIES = [
+  "All",
+  "Home Decor",
+  "Textiles",
+  "Jewelry",
+  "Pottery",
+  "Metalwork",
+  "Paintings",
+  "Woodwork",
+  "Stone Carving"
+];
+
+const REGIONS = [
+  "All",
+  "Odisha",
+  "Rajasthan",
+  "Uttar Pradesh",
+  "Karnataka",
+  "Bihar",
+  "Kashmir",
+  "Gujarat",
+  "West Bengal",
+  "Tamil Nadu",
+  "Maharashtra",
+  "Assam"
+];
+
+function SearchableDropdown({ 
+  label, 
+  options, 
+  value, 
+  onChange 
+}: { 
+  label: string; 
+  options: string[]; 
+  value: string; 
+  onChange: (val: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter(opt => 
+    opt.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-2 relative" ref={dropdownRef}>
+      <label className="text-xs font-bold text-[#8C7B70] uppercase tracking-wider ml-1">{label}</label>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full h-12 px-4 flex items-center justify-between bg-white border rounded-xl text-left transition-all ${isOpen ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]' : 'border-[#E5DCCA] hover:border-[#D4AF37]/50'}`}
+      >
+        <span className={`text-sm ${value && value !== 'All' ? 'text-[#4A3526] font-medium' : 'text-[#8C7B70]'}`}>
+          {value || `Select ${label}`}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[#D4AF37] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-full left-0 w-full mt-2 bg-[#FFFBF5] border border-[#D4AF37]/30 rounded-xl shadow-2xl z-50 overflow-hidden"
+          >
+            <div className="p-2 border-b border-[#E5DCCA] bg-white sticky top-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8C7B70]" />
+                <input 
+                  type="text" 
+                  placeholder={`Search ${label}...`}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm bg-[#FDFBF7] border border-[#E5DCCA] rounded-lg focus:outline-none focus:border-[#D4AF37] text-[#4A3526]"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="max-h-56 overflow-y-auto custom-scrollbar p-1">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      onChange(opt);
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm rounded-lg transition-colors text-left ${value === opt ? 'bg-[#D4AF37]/10 text-[#2F334F] font-semibold' : 'text-[#5D4037] hover:bg-[#F3E5AB]/30'}`}
+                  >
+                    {opt}
+                    {value === opt && <Check className="w-4 h-4 text-[#D4AF37]" />}
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-[#8C7B70]">No results found.</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function ShopContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Initialize filter states from URL search params
   const [sort, setSort] = useState(searchParams.get("sort") || "newest");
   const [category, setCategory] = useState(searchParams.get("category") || "All");
-  const [material, setMaterial] = useState(searchParams.get("material") || "All");
   const [region, setRegion] = useState(searchParams.get("region") || "All");
   const [minPrice, setMinPrice] = useState(searchParams.get("min") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("max") || "");
 
   const fetchProducts = async () => {
     setLoading(true);
-    setError(false);
     try {
       const params = new URLSearchParams();
       if (sort !== "newest") params.append("sort", sort);
       if (category !== "All") params.append("category", category);
-      if (material !== "All") params.append("material", material);
       if (region !== "All") params.append("region", region);
       if (minPrice) params.append("min", minPrice);
       if (maxPrice) params.append("max", maxPrice);
 
       const query = params.toString();
       const res = await fetch(`/api/products?${query}`);
-      
-      if (!res.ok) throw new Error("Failed to fetch");
-      
       const data = await res.json();
       setProducts(data);
-      
-      // Update the URL browser bar without a full page refresh
       router.push(`/shop?${query}`, { scroll: false });
     } catch (err) {
-      console.error("Shop Fetch Error:", err);
-      setError(true);
+      console.error("Shop Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Re-fetch automatically when sort changes
   useEffect(() => {
     fetchProducts();
-  }, [sort]);
+  }, [sort, category, region]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
 
   return (
-    <main className="bg-[#FDFBF7] min-h-screen">
-      <div className="container mx-auto py-10 px-4 flex flex-col lg:flex-row gap-8">
+    <main className="min-h-screen bg-[#FDFBF7] relative overflow-hidden">
+      
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#D97742]/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+      <div className="container mx-auto py-12 px-4 lg:px-8 relative z-10">
         
-        {/* SIDEBAR FILTERS */}
-        <aside className="w-full lg:w-72 space-y-8 bg-white p-6 rounded-2xl border border-[#E5DCCA] shadow-sm h-fit sticky top-24">
-          <div className="flex items-center gap-2 border-b pb-4">
-            <Filter className="w-5 h-5 text-[#D4AF37]" />
-            <h2 className="text-xl font-serif font-bold text-[#4A3526]">Filters</h2>
+        <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#4A3526]">
+              Royal Marketplace
+            </h1>
+            <p className="text-[#8C7B70] mt-2 text-lg">
+              Curated treasures from the heart of India.
+            </p>
           </div>
+          
+          <Button 
+            className="md:hidden bg-[#2F334F] text-white" 
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+          >
+            <Filter className="w-4 h-4 mr-2" /> Filters
+          </Button>
+        </div>
 
-          <div className="space-y-6">
-            <div>
-              <label className="text-sm font-bold text-[#8C7B70] uppercase tracking-wider">Sort By</label>
-              <select 
-                value={sort} 
-                onChange={(e) => setSort(e.target.value)}
-                className="w-full mt-2 p-2.5 bg-[#FDFBF7] border border-[#E5DCCA] rounded-lg text-[#4A3526] outline-none focus:ring-2 focus:ring-[#D4AF37]"
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          
+          <motion.aside 
+            initial={{ x: -50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            className={`w-full lg:w-72 bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-[#E5DCCA] shadow-xl sticky top-24 z-30 ${isFilterOpen ? 'block' : 'hidden lg:block'}`}
+          >
+            <div className="flex items-center justify-between mb-6 border-b border-[#E5DCCA] pb-4">
+              <div className="flex items-center gap-2 text-[#4A3526]">
+                <Filter className="w-5 h-5 text-[#D4AF37]" />
+                <h2 className="text-xl font-serif font-bold">Refine</h2>
+              </div>
+              <button 
+                onClick={() => { setCategory("All"); setRegion("All"); setMinPrice(""); setMaxPrice(""); }}
+                className="text-xs text-[#D97742] hover:underline"
               >
-                <option value="newest">Newest Arrivals</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
+                Reset All
+              </button>
             </div>
 
-            <div>
-              <label className="text-sm font-bold text-[#8C7B70] uppercase tracking-wider">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full mt-2 p-2.5 bg-[#FDFBF7] border border-[#E5DCCA] rounded-lg outline-none focus:ring-2 focus:ring-[#D4AF37]">
-                <option>All</option>
-                <option>Home Decor</option>
-                <option>Textiles</option>
-                <option>Jewelry</option>
-                <option>Pottery</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-bold text-[#8C7B70] uppercase tracking-wider">Material</label>
-              <select value={material} onChange={(e) => setMaterial(e.target.value)} className="w-full mt-2 p-2.5 bg-[#FDFBF7] border border-[#E5DCCA] rounded-lg outline-none focus:ring-2 focus:ring-[#D4AF37]">
-                <option>All</option>
-                <option>Silk</option>
-                <option>Clay</option>
-                <option>Metal</option>
-                <option>Wood</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-bold text-[#8C7B70] uppercase tracking-wider">Region</label>
-              <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full mt-2 p-2.5 bg-[#FDFBF7] border border-[#E5DCCA] rounded-lg outline-none focus:ring-2 focus:ring-[#D4AF37]">
-                <option>All</option>
-                <option>Odisha</option>
-                <option>Rajasthan</option>
-                <option>Bihar</option>
-                <option>Assam</option>
-                <option>Karnataka</option>
-                <option>Uttar Pradesh</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-bold text-[#8C7B70] uppercase tracking-wider">Price Range (₹)</label>
-              <div className="flex gap-2 mt-2">
-                <Input type="number" placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="bg-[#FDFBF7]" />
-                <Input type="number" placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="bg-[#FDFBF7]" />
-              </div>
-            </div>
-
-            <Button onClick={fetchProducts} className="w-full bg-[#2F334F] hover:bg-[#1E120B] text-white py-6 rounded-xl font-bold transition-all active:scale-95 shadow-md">
-              Apply Filters
-            </Button>
-          </div>
-        </aside>
-
-        {/* PRODUCT GRID */}
-        <section className="flex-grow">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-6 rounded-2xl text-center mb-8">
-              <p className="font-bold">Could not fetch products. Please try again later.</p>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-32 gap-4">
-              <Loader2 className="animate-spin w-12 h-12 text-[#D4AF37]" />
-              <p className="text-[#8C7B70] font-medium">Gathering handcrafted treasures...</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-center mb-8">
-                <p className="text-[#8C7B70]">Showing <strong>{products.length}</strong> unique crafts</p>
+            <div className="space-y-6">
+              
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#8C7B70] uppercase tracking-wider ml-1">Sort By</label>
+                <select 
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="w-full h-12 px-4 bg-white border border-[#E5DCCA] rounded-xl text-sm text-[#4A3526] outline-none focus:border-[#D4AF37] appearance-none"
+                >
+                  <option value="newest">Newest Arrivals</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                </select>
               </div>
 
-              {products.length === 0 ? (
-                <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-[#E5DCCA]">
-                  <Search className="w-12 h-12 text-[#E5DCCA] mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-[#4A3526]">No products found</h3>
-                  <p className="text-[#8C7B70] mt-2">Try adjusting your filters to find what you are looking for.</p>
+              <SearchableDropdown 
+                label="Category" 
+                options={CATEGORIES} 
+                value={category} 
+                onChange={setCategory} 
+              />
+
+              <SearchableDropdown 
+                label="Region" 
+                options={REGIONS} 
+                value={region} 
+                onChange={setRegion} 
+              />
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#8C7B70] uppercase tracking-wider ml-1">Price (₹)</label>
+                <div className="flex gap-3">
+                  <Input 
+                    type="number" placeholder="Min" 
+                    value={minPrice} onChange={(e) => setMinPrice(e.target.value)} 
+                    className="bg-white border-[#E5DCCA] rounded-xl h-12 focus-visible:ring-[#D4AF37]" 
+                  />
+                  <Input 
+                    type="number" placeholder="Max" 
+                    value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} 
+                    className="bg-white border-[#E5DCCA] rounded-xl h-12 focus-visible:ring-[#D4AF37]" 
+                  />
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {products.map((product: any) => (
-                    <div key={product.id} className="group bg-white rounded-2xl border border-[#E5DCCA] overflow-hidden hover:shadow-xl transition-all duration-300">
-                      <div className="relative h-72 w-full overflow-hidden">
-                        <Image 
-                          src={product.images[0] || "/p1.png"} 
-                          alt={product.title} 
-                          fill 
-                          className="object-cover group-hover:scale-105 transition-transform duration-500" 
-                        />
-                        <div className="absolute top-4 left-4">
-                          <Badge className="bg-white/90 backdrop-blur-sm text-[#4A3526] border-none shadow-sm">{product.category}</Badge>
-                        </div>
-                      </div>
-                      <div className="p-5">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-serif font-bold text-lg text-[#4A3526] line-clamp-1">{product.title}</h3>
-                          <p className="text-xl font-bold text-[#D97742]">₹{product.price}</p>
-                        </div>
-                        <p className="text-xs text-[#8C7B70] mb-4 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-[#D4AF37]" /> 
-                          {product.artisan?.profile?.state || "India"}
-                        </p>
-                        <p className="text-sm text-[#5D4037] line-clamp-2 mb-6 h-10">{product.description}</p>
-                        
-                        {/* WRAPPED IN LINK: Navigates to Phase 3 Details Page */}
-                        <Link href={`/shop/${product.id}`}>
-                          <Button className="w-full bg-white border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white font-bold rounded-xl gap-2 transition-all">
-                            <ShoppingCart className="w-4 h-4" /> View Details
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
+              </div>
+
+              <Button 
+                onClick={fetchProducts} 
+                className="w-full h-14 bg-[#2F334F] hover:bg-[#1E120B] text-white rounded-xl font-serif tracking-wide shadow-lg mt-4 text-lg"
+              >
+                Apply Filters
+              </Button>
+            </div>
+          </motion.aside>
+
+          <section className="flex-grow min-h-[80vh] w-full">
+            
+            {loading ? (
+              <div className="h-96 flex flex-col items-center justify-center gap-4">
+                <div className="relative">
+                   <div className="w-16 h-16 border-4 border-[#E5DCCA] border-t-[#D4AF37] rounded-full animate-spin"></div>
+                   <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-[#D4AF37] rounded-full"></div>
+                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </section>
+                <p className="text-[#8C7B70] font-serif animate-pulse">Curating collection...</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-6 px-2">
+                  <p className="text-[#8C7B70] text-sm">
+                    Showing <strong className="text-[#4A3526]">{products.length}</strong> masterpieces
+                  </p>
+                </div>
+
+                {products.length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="text-center py-20 bg-white/50 rounded-[2rem] border border-dashed border-[#D4AF37]/30"
+                  >
+                    <Search className="w-16 h-16 text-[#E5DCCA] mx-auto mb-4" />
+                    <h3 className="text-2xl font-serif font-bold text-[#4A3526]">No treasures found</h3>
+                    <p className="text-[#8C7B70] mt-2">Try adjusting your filters to find what you seek.</p>
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+                  >
+                    {products.map((product: any) => (
+                      <motion.div 
+                        key={product.id} 
+                        variants={itemVariants}
+                        className="group bg-white rounded-[1.5rem] border border-[#E5DCCA] overflow-hidden hover:shadow-2xl hover:border-[#D4AF37]/50 transition-all duration-500 hover:-translate-y-2 flex flex-col h-full"
+                      >
+                        <div className="relative h-64 w-full overflow-hidden bg-[#F9F5F0]">
+                          <Image 
+                            src={product.images[0] || "/p1.png"} 
+                            alt={product.title} 
+                            fill 
+                            className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                          />
+                          <div className="absolute top-4 left-4">
+                            <Badge className="bg-white/90 backdrop-blur text-[#4A3526] border border-[#E5DCCA] shadow-sm hover:bg-white">{product.category}</Badge>
+                          </div>
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        </div>
+
+                        <div className="p-6 flex flex-col flex-grow">
+                          <div className="mb-4 flex-grow">
+                            <div className="flex justify-between items-start mb-2 gap-2">
+                              <h3 className="font-serif font-bold text-lg text-[#4A3526] line-clamp-1 group-hover:text-[#D97742] transition-colors">
+                                {product.title}
+                              </h3>
+                              <p className="text-lg font-bold text-[#2F334F] whitespace-nowrap">₹{product.price}</p>
+                            </div>
+                            
+                            <div className="flex items-center gap-1 text-xs text-[#8C7B70] mb-3">
+                              <MapPin className="w-3 h-3 text-[#D4AF37]" /> 
+                              {product.artisan?.profile?.state || "India"}
+                            </div>
+                            
+                            <p className="text-sm text-[#5D4037]/80 line-clamp-2 leading-relaxed">
+                              {product.description}
+                            </p>
+                          </div>
+                          
+                          <Link href={`/shop/${product.id}`} className="block mt-auto">
+                            <Button className="w-full h-12 bg-[#FDFBF7] border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white font-bold rounded-xl gap-2 transition-all shadow-sm hover:shadow-md">
+                              <ShoppingCart className="w-4 h-4" /> View Details
+                            </Button>
+                          </Link>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+              </>
+            )}
+          </section>
+
+        </div>
       </div>
     </main>
   );
@@ -205,7 +377,7 @@ function ShopContent() {
 
 export default function ShopPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#D4AF37]" /></div>}>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-[#FDFBF7]"><Loader2 className="w-10 h-10 animate-spin text-[#D4AF37]" /></div>}>
       <ShopContent />
     </Suspense>
   );

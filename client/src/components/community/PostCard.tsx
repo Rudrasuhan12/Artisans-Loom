@@ -134,7 +134,7 @@ export default function PostCard({ post, currentUserId, level = 0 }: { post: any
              <Textarea 
                value={editContent} 
                onChange={(e) => setEditContent(e.target.value)} 
-               className="bg-white border-[#D4AF37] min-h-[80px]"
+               className="bg-white border-[#D4AF37] min-h-20"
              />
              <div className="flex justify-end gap-2 mt-2">
                 <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}><X className="w-4 h-4" /></Button>
@@ -180,7 +180,7 @@ export default function PostCard({ post, currentUserId, level = 0 }: { post: any
                        value={commentText}
                        onChange={(e) => setCommentText(e.target.value)}
                        placeholder={`Reply to ${authorName}...`} 
-                       className="min-h-[60px] bg-white border-[#E5DCCA] text-sm focus-visible:ring-[#D4AF37]"
+                       className="min-h-15 bg-white border-[#E5DCCA] text-sm focus-visible:ring-[#D4AF37]"
                      />
                      <div className="flex justify-end mt-2">
                         <Button size="sm" onClick={handleCommentSubmit} disabled={isPostingComment || !commentText} className="bg-[#2F334F] text-white h-8 text-xs">
