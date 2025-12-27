@@ -8,8 +8,8 @@ const cron = require('node-cron');
 const { PrismaClient } = require('@prisma/client');
 const { Pool } = require('pg'); 
 const { PrismaPg } = require('@prisma/adapter-pg'); 
-// [FIX]: Updated to the new SDK as per your package.json
-const { CreateClient } = require("@google/genai"); 
+// [FIX]: Correct named import for the new SDK
+const { GoogleGenAI } = require("@google/genai"); 
 
 const app = express();
 
@@ -22,8 +22,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// [FIX]: AI Initialization using the new SDK syntax
-const client = CreateClient({ apiKey: process.env.GEMINI_API_KEY });
+// [FIX]: Initialization using the correct Class constructor
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -49,21 +49,21 @@ async function generateAutomatedStory() {
     });
 
     if (eligibleArtisans.length === 0) {
-      console.log("No new artisans to feature. Every artisan has a story.");
+      console.log("No new artisans to feature.");
       return "No new artisans to feature.";
     }
 
     const artisan = eligibleArtisans[Math.floor(Math.random() * eligibleArtisans.length)];
-    
-    // [FIX]: Updated to the latest 2025 model and new API syntax
     const prompt = `Write a beautiful 300-word spotlight for artisan ${artisan.name} who does ${artisan.profile?.craftType || 'traditional crafts'}. Return ONLY JSON with keys: "title", "excerpt", "content".`;
-    
-    const result = await client.models.generateContent({
+
+    // [FIX]: Updated method call for Gemini 2.0 Flash
+    const result = await ai.models.generateContent({
       model: "gemini-2.0-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }]
     });
 
-    const responseText = result.candidates[0].content.parts[0].text;
+    // Extracting the text response correctly from the new response structure
+    const responseText = result.text; 
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) throw new Error("AI failed to return valid JSON.");
@@ -78,7 +78,7 @@ async function generateAutomatedStory() {
         featuredArtisanId: artisan.id
       }
     });
-    
+
     console.log(`✅ Successfully published spotlight for ${artisan.name}`);
     return `Success: Featured ${artisan.name}`;
   } catch (error) {
@@ -88,8 +88,6 @@ async function generateAutomatedStory() {
 }
 
 // --- API ENDPOINTS ---
-
-// Manual trigger for testing
 app.get('/api/stories/trigger', async (req, res) => {
   const result = await generateAutomatedStory();
   res.send(result);
@@ -107,7 +105,6 @@ app.get('/api/stories', async (req, res) => {
     });
     res.json(stories);
   } catch (error) {
-    console.error("Fetch Stories Error:", error);
     res.status(500).json({ error: "Could not fetch stories." });
   }
 });
@@ -129,7 +126,6 @@ io.on('connection', (socket) => {
         timestamp: newBid.timestamp
       });
     } catch (error) {
-      console.error("Bid Error:", error);
       socket.emit('error', { message: "Could not place bid." });
     }
   });
@@ -145,14 +141,11 @@ cron.schedule('* * * * *', async () => {
     });
     for (let auction of expiredAuctions) {
       await prisma.auctionItem.update({ where: { id: auction.id }, data: { status: 'SOLD' } });
-      console.log(`Auction ${auction.id} closed.`);
     }
   } catch (error) { console.error("Cron Error:", error); }
 });
 
-cron.schedule('0 * * * *', () => {
-  generateAutomatedStory();
-});
+cron.schedule('0 * * * *', () => generateAutomatedStory());
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
