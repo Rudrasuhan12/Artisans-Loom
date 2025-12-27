@@ -1,11 +1,13 @@
 generator client {
   provider = "prisma-client-js"
+  // Directs the generated client to the server's node_modules to fix MODULE_NOT_FOUND
+  output   = "../../server/node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
-  // Note: url is omitted here for Prisma 7 compatibility. 
-  // It must be defined in your prisma.config.ts.
+  // [FIX]: url property is removed here for Prisma 7 compatibility. 
+  // Connection is handled via prisma.config.ts and constructor injection.
 }
 
 enum Role {
@@ -33,6 +35,7 @@ model User {
   products     Product[]
   orders       Order[]
   bids         Bid[]
+  stories      Story[]       // Relation to the Artisan Spotlight stories
   forumPosts   ForumPost[]
   forumLikes   ForumLike[]
   followedBy   Follows[]     @relation("following")
@@ -60,22 +63,22 @@ model Profile {
 }
 
 model Product {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String
   price       Float
   category    String
   materials   String[]
   images      String[]
-  stock       Int           @default(1)
+  stock       Int          @default(1)
   tags        String[]
-  views       Int           @default(0)
-  salesCount  Int           @default(0)
-  artisan     User          @relation(fields: [artisanId], references: [id])
+  views       Int          @default(0)
+  salesCount  Int          @default(0)
+  artisan     User         @relation(fields: [artisanId], references: [id])
   artisanId   String
   auction     AuctionItem?
   orderItems  OrderItem[]  
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime     @default(now())
 }
 
 model Order {
@@ -129,12 +132,16 @@ model ChatHistory {
 }
 
 model Story {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  heroImage String?
-  artisanId String
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  title             String
+  excerpt           String   @db.Text             // Short summary for cards
+  content           String   @db.Text             // Full story body
+  category          String   @default("Artisan Spotlights")
+  author            String   @default("The Artisan's Loom")
+  heroImage         String?
+  featuredArtisanId String
+  featuredArtisan   User     @relation(fields: [featuredArtisanId], references: [id]) 
+  createdAt         DateTime @default(now())
 }
 
 model ForumPost {
@@ -156,11 +163,11 @@ model ForumPost {
 }
 
 model ForumLike {
-  id        String    @id @default(cuid())
-  postId    String
-  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade) 
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  id      String    @id @default(cuid())
+  postId  String
+  post    ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade) 
+  userId  String
+  user    User      @relation(fields: [userId], references: [id])
 
   @@unique([postId, userId])
 }
