@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, MapPin, Compass, Lightbulb } from "lucide-react";
 import Image from "next/image";
 import { RoyalDivider } from "@/components/ui/royal-divider";
-import Link from "next/link"; //
+import Link from "next/link"; 
 
 const regions = [
   {
@@ -126,7 +126,6 @@ export default function RegionalMap() {
              <div className="flex flex-col sm:flex-row gap-4 pt-4">
 
                 <div className="flex-1 group relative rounded-xl p-0.5 bg-linear-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] shadow-lg hover:shadow-[#D4AF37]/40 transition-shadow">
-                   {/* Functional Redirect to Map Page */}
                    <Link href="/atlas" className="w-full">
                      <Button className="w-full h-14 rounded-[10px] bg-[#FFFBF5] hover:bg-[#FFF5E1] text-[#4A3526] text-base font-serif font-medium border-none shadow-inner">
                         Launch Interactive Map
@@ -135,17 +134,15 @@ export default function RegionalMap() {
                 </div>
 
                 <div className="flex-1 group relative rounded-xl p-0.5 bg-linear-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] shadow-lg hover:shadow-[#2F334F]/40 transition-shadow">
-                   {/* Functional Redirect to the Atlas section */}
-                   <Link href="/atlas" className="w-full">
-                     <Button className="w-full h-14 rounded-[10px] bg-[#2F334F] hover:bg-[#1E2135] text-[#FDFBF7] text-base font-serif font-medium border-none shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] relative overflow-hidden">
-                        <span className="relative z-10 flex items-center gap-2">
-                           View Craft Atlas <ArrowRight className="w-4 h-4 text-[#D4AF37]" />
-                        </span>
-
-                        <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                     </Button>
-                   </Link>
-                </div>
+                     <Link href="/craft-atlas">
+                        <Button className="w-full h-14 rounded-[10px] bg-[#2F334F] hover:bg-[#1E2135] text-[#FDFBF7] text-base font-serif font-medium border-none shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] relative overflow-hidden">
+                           <span className="relative z-10 flex items-center gap-2">
+                               View Craft Atlas <ArrowRight className="w-4 h-4 text-[#D4AF37]" />
+                           </span>
+                     <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                        </Button>
+                     </Link>
+                </div>                     
 
              </div>
 
