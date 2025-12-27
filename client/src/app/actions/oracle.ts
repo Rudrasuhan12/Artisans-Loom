@@ -22,7 +22,7 @@ export async function getMitraOracleInsights(language: string = "English") {
     // 2. Synthesize internal context for AI
     const dataContext = `Recent sales show high interest in handcrafted items. The community is actively searching for unique heritage pieces.`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const prompt = `
       You are 'Craft Mitra', a world-class market trend forecaster for an Indian handicraft marketplace.

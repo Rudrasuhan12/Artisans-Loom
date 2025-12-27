@@ -9,13 +9,18 @@ import Link from "next/link";
 import { useUser, UserButton } from "@clerk/nextjs"; 
 import LanguageSwitcher from "@/components/ui/language-switcher";
 import { useLanguageStore } from "@/store/useLanguageStore";
+import { useUserStore } from "@/store/useUserStore"; // [NEW] Import user store to detect role
 import { translations } from "@/lib/translations"; 
 
 export default function HeroSection() {
   const { isSignedIn } = useUser();
   const { language } = useLanguageStore();
+  const { role } = useUserStore(); // [NEW] Access the role from the store
   
   const t = translations[language] || translations['en'];
+
+  // [NEW]: Determine correct dashboard path based on role
+  const dashboardPath = role === "ARTISAN" ? "/artisan" : "/customer";
 
   return (
     <section className="relative w-full h-screen overflow-hidden bg-[#FDFBF7] selection:bg-[#D4AF37] selection:text-white flex flex-col justify-between">
@@ -45,12 +50,12 @@ export default function HeroSection() {
             </Link>
           </div>
           <nav className="hidden lg:flex items-center gap-8 text-[#4A3526] font-medium text-[15px]">
-            {/* Navigation updated to point to real routes */}
+            {/* [UPDATED]: Links now use Next.js Link component for correct routing */}
             <Link href="/shop" className="hover:text-[#D97742] transition-colors">{t.discover}</Link>
             <Link href="/atlas" className="hover:text-[#D97742] transition-colors">{t.regions}</Link>
-            <a href="#" className="hover:text-[#D97742] transition-colors">{t.artisans}</a>
-            <a href="#" className="hover:text-[#D97742] transition-colors">{t.stories}</a>
-            <a href="#" className="hover:text-[#D97742] transition-colors">{t.auction}</a>
+            <Link href="/artisans" className="hover:text-[#D97742] transition-colors">{t.artisans}</Link>
+            <Link href="/stories" className="hover:text-[#D97742] transition-colors">{t.stories}</Link>
+            <Link href="/auction" className="hover:text-[#D97742] transition-colors">{t.auction}</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
@@ -64,7 +69,8 @@ export default function HeroSection() {
 
             {isSignedIn ? (
               <div className="flex items-center gap-3 pl-2 border-l border-[#D4AF37]/30">
-                <Link href="/artisan">
+                {/* [FIXED]: Link updated from static "/artisan" to dynamic {dashboardPath} */}
+                <Link href={dashboardPath}>
                   <Button className="h-10 px-6 rounded-full bg-[#2F334F] hover:bg-[#1E2135] text-white font-medium shadow-md transition-transform active:scale-95">
                     {t.goToDashboard}
                   </Button>

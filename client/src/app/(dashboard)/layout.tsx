@@ -8,32 +8,37 @@ import {
   BarChart3, 
   Settings, 
   Users, 
-  Package 
+  Package,
+  Home,
+  ShoppingCart
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import BackButton from "@/components/dashboard/BackButton";
 import Image from "next/image";
 import { useLanguageStore } from "@/store/useLanguageStore";
+import { useUserStore } from "@/store/useUserStore"; // [NEW] Access the role
 import { translations } from "@/lib/translations";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { language } = useLanguageStore();
+  const { role } = useUserStore(); // [NEW] Retrieve user role
   
   const t = translations[language] || translations['en'];
 
-  // Sidebar Links: "Marketing AI" page removed, "My Purchases" added
-  const sidebarLinks = [
+  // [FIXED]: Role-aware navigation links
+  const sidebarLinks = role === "ARTISAN" ? [
     { name: t.dashboard || "Dashboard", href: "/artisan", icon: LayoutDashboard },
-    { name: t.products || "My Masterpieces", href: "/artisan/products", icon: ShoppingBag },
-    { 
-      name: "My Purchases", 
-      href: "/artisan/orders", 
-      icon: Package 
-    },
+    { name: "My Masterpieces", href: "/artisan/products", icon: ShoppingBag },
+    { name: "My Purchases", href: "/artisan/orders", icon: Package },
     { name: t.analytics || "Analytics", href: "/artisan/analytics", icon: BarChart3 },
     { name: t.community || "Community", href: "/artisan/community", icon: Users },
     { name: t.settings || "Settings", href: "/artisan/settings", icon: Settings },
+  ] : [
+    { name: "Home", href: "/customer", icon: Home },
+    { name: "My Orders", href: "/customer/orders", icon: Package },
+    { name: "My Cart", href: "/customer/cart", icon: ShoppingCart },
+    { name: t.settings || "Settings", href: "/customer/settings", icon: Settings },
   ];
 
   return (
@@ -80,7 +85,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "w-10 h-10" } }} />
              <div className="flex flex-col">
                 <p className="font-medium text-sm text-[#FDFBF7]">{t.yourProfile || "My Profile"}</p>
-                <p className="text-xs text-[#8C7B70]">Artisan Account</p>
+                <p className="text-xs text-[#8C7B70]">
+                   {role === "ARTISAN" ? "Artisan Account" : "Customer Account"}
+                </p>
              </div>
           </div>
         </div>
