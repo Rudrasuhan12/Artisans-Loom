@@ -1,43 +1,20 @@
-"use client";
-
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  BarChart3, 
-  Settings, 
-  Users, 
-  Package // [NEW] Added for the Orders icon
-} from "lucide-react";
-import { usePathname } from "next/navigation";
-import BackButton from "@/components/dashboard/BackButton";
 import Image from "next/image";
-import { useLanguageStore } from "@/store/useLanguageStore";
-import { translations } from "@/lib/translations";
+import BackButton from "@/components/dashboard/BackButton";
+import SidebarNav from "@/components/dashboard/SidebarNav";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const { language } = useLanguageStore();
-  
-  const t = translations[language] || translations['en'];
-
-  // [UPDATE] Added "My Orders" link pointing to your new artisan orders page
-  const sidebarLinks = [
-    { name: t.dashboard, href: "/artisan", icon: LayoutDashboard },
-    { name: t.products, href: "/artisan/products", icon: ShoppingBag },
-    { 
-      name: t.myOrders || "My Orders", // Fallback if translation key is missing
-      href: "/artisan/orders", 
-      icon: Package 
-    },
-    { name: t.analytics, href: "/artisan/analytics", icon: BarChart3 },
-    { name: t.community, href: "/artisan/community", icon: Users },
-    { name: t.settings, href: "/artisan/settings", icon: Settings },
-  ];
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { userId } = await auth();
+  const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
+  const userRole = user?.role || "CUSTOMER"; 
+  const displayRole = userRole === "ARTISAN" ? "Artisan Studio" : "Patron Account";
 
   return (
     <div className="flex min-h-screen bg-[#FDFBF7]">
+
       <aside className="w-64 shrink-0 bg-[#2C1810] flex flex-col text-[#FDFBF7]">
         
         <div className="h-24 flex items-center px-6 border-b border-[#D4AF37]/20">
@@ -51,38 +28,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 />
              </div>
              <span className="font-serif text-xl font-bold text-[#FDFBF7] tracking-tight">
-                Artisan's Loom
+               Artisan's Loom
              </span>
            </Link>
         </div>
         
-        <nav className="flex-1 px-4 py-8 space-y-3">
-          {sidebarLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link 
-                key={link.href} 
-                href={link.href}
-                className={`flex items-center gap-4 rounded-xl px-4 py-3.5 font-medium transition-all duration-300 relative group overflow-hidden ${
-                  isActive
-                    ? "bg-[#4A3526] text-white shadow-lg border border-[#D4AF37]/20" 
-                    : "text-[#E5DCCA]/70 hover:bg-[#3E2A1C] hover:text-white"
-                }`}
-              >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
-                  isActive ? 'text-[#D4AF37]' : 'group-hover:text-[#D4AF37]'
-                }`}>
-                  <link.icon className="h-5 w-5" />
-                </div>
-                <span>{link.name}</span>
-                
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#D4AF37] rounded-r-full"></div>
-                )}
-              </Link>
-            )
-          })}
-        </nav>
+        <SidebarNav role={userRole} />
 
         <div className="mt-auto p-4 border-t border-[#D4AF37]/20 bg-black/20">
           <div className="flex items-center gap-3">
@@ -91,8 +42,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              </div>
              
              <div className="flex flex-col">
-                <p className="font-medium text-sm text-[#FDFBF7]">{t.yourProfile}</p>
-                <p className="text-xs text-[#8C7B70]">{t.artisanAccount}</p>
+                <p className="font-medium text-sm text-[#FDFBF7]">My Profile</p>
+                <p className="text-xs text-[#8C7B70]">{displayRole}</p>
              </div>
           </div>
         </div>

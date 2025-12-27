@@ -6,7 +6,9 @@ import "./globals.css";
 import { LayoutClient } from "./layout-client";
 import CraftMitra from "@/components/mitra/CraftMitra";
 import { Toaster } from "@/components/ui/sonner";
-import CartDrawer from "@/components/cart/CartDrawer"; // [NEW] Import the Cart Drawer
+import CartDrawer from "@/components/cart/CartDrawer";
+
+export const dynamic = 'force-dynamic'; 
 
 const playfair = Playfair_Display({ 
   subsets: ["latin"], 
@@ -26,7 +28,6 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   try {
-    // Syncs Clerk user with your Prisma database
     await syncUser();
   } catch (error) {
     console.error('Error in syncUser during layout rendering:', error);
@@ -36,19 +37,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7]`}>
-          {/* Navbar sits at the top of every page and tracks the cart count */}
-          
-          
+                  
           {children}
           
           <LayoutClient />
-          
-          {/* [NEW] CartDrawer provides the sliding sidebar for the shopping cart */}
           <CartDrawer /> 
           
           <CraftMitra />
-          
-          {/* Toaster renders the "Added to Cart" notifications */}
+
           <Toaster position="bottom-right" richColors closeButton />
         </body>
       </html>

@@ -7,18 +7,15 @@ import ImpactSection from "@/components/landing/ImpactSection";
 import Footer from "@/components/landing/Footer";
 import { prisma } from "@/lib/prisma"; //
 
+export const dynamic = 'force-dynamic';
+
 export default async function LandingPage() {
-  /**
-   * [FIX]: We now fetch real products from the database instead of using
-   * hardcoded data in the component. This ensures that the 'id' passed 
-   * to the FeaturedSection matches a real record in Prisma.
-   */
+
   const realProducts = await prisma.product.findMany({
     take: 4,
     orderBy: { 
       createdAt: 'desc' 
     },
-    // We include the artisan information if your UI displays 'By [Artisan Name]'
     include: {
       artisan: {
         include: {
@@ -31,10 +28,6 @@ export default async function LandingPage() {
   return (
     <main className="min-h-screen bg-[#FDFBF7] flex flex-col">
       <HeroSection />
-      
-      {/* [UPDATE]: Pass the fetched 'realProducts' as a prop. 
-         This allows the 'Details' link to use 'product.id' (e.g., /shop/cm0x...)
-      */}
       <FeaturedSection products={realProducts} />
       
       <TrendingSection />

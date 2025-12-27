@@ -10,6 +10,8 @@ import { Loader2, ShoppingCart, Filter, Search, MapPin, X, Check, ChevronDown } 
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 
+export const dynamic = 'force-dynamic';
+
 const CATEGORIES = [
   "All",
   "Home Decor",

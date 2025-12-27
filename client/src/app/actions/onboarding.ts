@@ -11,21 +11,34 @@ export async function onboardCustomerAction(formData: FormData) {
     throw new Error("Unauthorized");
   }
 
-  const craftTypes = formData.get("craftTypes")?.toString().split(",").map(s => s.trim()) || [];
-  const budget = formData.get("budget")?.toString();
+  const profileData = {
+    phoneNumber: formData.get("phoneNumber")?.toString(),
+    streetAddress: formData.get("streetAddress")?.toString(),
+    city: formData.get("city")?.toString(),
+    state: formData.get("state")?.toString(),
+    pincode: formData.get("pincode")?.toString(),
+  };
+
+  const preferences = {
+    favoriteCrafts: formData.get("craftTypes")?.toString().split(",").map(s => s.trim()) || [],
+    budget: formData.get("budget")?.toString(),
+  };
 
   await prisma.user.update({
     where: { clerkId: userId },
     data: {
       role: "CUSTOMER",
-      preferences: {
-        favoriteCrafts: craftTypes,
-        budget: budget
+      preferences: preferences,
+      profile: {
+        upsert: {
+          create: profileData,
+          update: profileData
+        }
       }
     },
   });
 
-  redirect("/shop");
+  redirect("/customer"); 
 }
 
 export async function onboardArtisanAction(formData: FormData) {

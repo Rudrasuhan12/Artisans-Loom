@@ -1,19 +1,20 @@
 "use client";
 
-import { useCartStore } from "@/store/useCartStore"; //
+import { useCartStore } from "@/store/useCartStore";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; //
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShieldCheck, Truck } from "lucide-react";
-import { toast } from "sonner"; //
+import { ArrowLeft, ShieldCheck, Truck, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { createOrderAction } from "@/app/actions/orders";
 
 export default function CheckoutPage() {
-  const { items, clearCart } = useCartStore(); //
+  const { items, clearCart } = useCartStore();
   const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(false); //
-  const router = useRouter(); //
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -23,26 +24,19 @@ export default function CheckoutPage() {
   const shipping = subtotal > 5000 ? 0 : 500;
   const total = subtotal + shipping;
 
-  // Simulated Payment Logic
   const handlePayment = async () => {
-    setLoading(true); //
-    
-    // Simulate a payment gateway delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setLoading(true);
 
     try {
-      // 1. Clear the cart state after "successful" payment
-      clearCart(); 
-      
-      // 2. Provide feedback to the user
-      toast.success("Payment Successful!"); 
-      
-      // 3. Navigate to the confirmation screen
+      await createOrderAction(items, total);
+      clearCart();
+      toast.success("Payment Successful! Order Placed.");
       router.push("/checkout/success");
     } catch (error) {
+      console.error(error);
       toast.error("Payment failed. Please try again.");
     } finally {
-      setLoading(false); //
+      setLoading(false);
     }
   };
 
@@ -68,7 +62,6 @@ export default function CheckoutPage() {
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* LEFT: SHIPPING FORM */}
           <div className="space-y-8">
             <section className="bg-white p-8 rounded-3xl border border-[#E5DCCA] shadow-sm">
               <h2 className="text-2xl font-serif font-bold text-[#4A3526] mb-6">Shipping Details</h2>
@@ -88,7 +81,6 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* RIGHT: ORDER SUMMARY */}
           <div className="space-y-6">
             <div className="bg-white p-8 rounded-3xl border border-[#E5DCCA] shadow-sm sticky top-24">
               <h2 className="text-2xl font-serif font-bold text-[#4A3526] mb-6">Order Summary</h2>
@@ -96,10 +88,10 @@ export default function CheckoutPage() {
               <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-4 group">
-                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#E5DCCA] flex-shrink-0">
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#E5DCCA] shrink-0">
                       <Image src={item.image} alt={item.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                     </div>
-                    <div className="flex-grow">
+                    <div className="grow">
                       <h4 className="text-sm font-bold text-[#4A3526] line-clamp-1">{item.title}</h4>
                       <p className="text-xs text-[#8C7B70]">Qty: {item.quantity}</p>
                     </div>
@@ -123,7 +115,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Action Button with Loading State */}
               <Button 
                 onClick={handlePayment}
                 disabled={loading}
@@ -131,7 +122,7 @@ export default function CheckoutPage() {
               >
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                     Processing...
                   </div>
                 ) : (

@@ -27,3 +27,27 @@ export async function updateArtisanProfile(formData: FormData) {
 
   revalidatePath("/artisan/settings");
 }
+
+export async function updateCustomerProfile(formData: FormData) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const data = {
+    phoneNumber: formData.get("phoneNumber")?.toString(),
+    streetAddress: formData.get("streetAddress")?.toString(),
+    city: formData.get("city")?.toString(),
+    state: formData.get("state")?.toString(),
+    pincode: formData.get("pincode")?.toString(),
+  };
+
+  await prisma.user.update({
+    where: { clerkId: userId },
+    data: {
+      profile: {
+        update: data
+      }
+    }
+  });
+
+  revalidatePath("/customer/settings");
+}

@@ -51,7 +51,12 @@ model Profile {
   bio               String?
   location          String?
   state             String? 
-  yearsOfExperience Int?    
+  yearsOfExperience Int? 
+  phoneNumber       String?
+  streetAddress     String?
+  city              String?
+  pincode           String?
+  country           String? @default("India")   
 }
 
 model Product {
@@ -76,7 +81,7 @@ model Product {
 model Order {
   id         String      @id @default(cuid())
   total      Float
-  status     String      @default("PENDING") // Status used for tracking (e.g., Paid, Shipped)
+  status     String      @default("PENDING") 
   customer   User        @relation(fields: [customerId], references: [id])
   customerId String
   items      OrderItem[] 
