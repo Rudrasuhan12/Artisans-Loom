@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Edit, Trash2, Sparkles, Video } from "lucide-react"; // [NEW] Added Video icon
+import { Edit, Trash2, Sparkles, Video, Gavel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteProductAction } from "@/app/actions/products";
 import PremiumAlert from "@/components/ui/premium-alert";
 import MarketingGeneratorModal from "./MarketingGeneratorModal";
-import ReelScriptModal from "./ReelScriptModal"; // [NEW] Import Reel Script Modal
-import { generateReelScript } from "@/app/actions/marketing"; // [NEW] Import Reel Action
+import ReelScriptModal from "./ReelScriptModal"; 
+import AuctionModal from "./AuctionModal";
+import { generateReelScript } from "@/app/actions/marketing"; 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -31,9 +32,9 @@ export default function ProductCard({
 }: ProductProps) {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isMarketingOpen, setIsMarketingOpen] = useState(false);
-  const [isReelOpen, setIsReelOpen] = useState(false); // [NEW] Reel Modal state
-  const [isGeneratingReel, setIsGeneratingReel] = useState(false); // [NEW] Loading state
-  const [reelScript, setReelScript] = useState<any>(null); // [NEW] Script result state
+  const [isReelOpen, setIsReelOpen] = useState(false);
+  const [isGeneratingReel, setIsGeneratingReel] = useState(false);
+  const [reelScript, setReelScript] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
@@ -49,7 +50,6 @@ export default function ProductCard({
     }
   };
 
-  // [NEW] Logic to trigger AI Reel generation
   const handleCreateReel = async () => {
     setIsReelOpen(true);
     setIsGeneratingReel(true);
@@ -83,10 +83,10 @@ export default function ProductCard({
           
           <div className="absolute inset-0 bg-linear-to-t from-[#2C1810]/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-          {/* Action Buttons: Positioned like the reference project */}
           <div className="absolute bottom-4 right-4 flex gap-2 translate-y-10 group-hover:translate-y-0 transition-transform duration-300">
             
-            {/* [NEW]: AI Reel Script Button */}
+            <AuctionModal productId={id} />
+
             <Button 
               size="icon" 
               onClick={handleCreateReel}
@@ -96,7 +96,6 @@ export default function ProductCard({
               <Video className="w-4 h-4" />
             </Button>
 
-            {/* AI Marketing Studio Button */}
             <Button 
               size="icon" 
               onClick={() => setIsMarketingOpen(true)}
@@ -151,14 +150,12 @@ export default function ProductCard({
         </div>
       </motion.div>
 
-      {/* AI Marketing Modal */}
       <MarketingGeneratorModal 
         isOpen={isMarketingOpen}
         onClose={() => setIsMarketingOpen(false)}
         product={{ title, category, materials, description }}
       />
 
-      {/* [NEW]: AI Reel Modal */}
       <ReelScriptModal 
         isOpen={isReelOpen}
         onClose={() => setIsReelOpen(false)}
