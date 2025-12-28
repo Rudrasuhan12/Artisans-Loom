@@ -31,11 +31,20 @@ function StoriesContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
 
+  // [UPDATE]: Define the backend URL dynamically
+  // If you add NEXT_PUBLIC_BACKEND_URL to Vercel env vars, it will use that.
+  // Otherwise, it defaults to your live Render URL.
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://artisans-loom-backend.onrender.com";
+
   // 1. Fetch stories from your Express Backend
   useEffect(() => {
     async function fetchStories() {
       try {
-        const response = await fetch("http://localhost:3001/api/stories");
+        // [FIX]: Changed from localhost:3001 to the dynamic BACKEND_URL
+        const response = await fetch(`${BACKEND_URL}/api/stories`);
+        
+        if (!response.ok) throw new Error("Failed to fetch");
+        
         const data = await response.json();
         setStories(data);
 
@@ -51,7 +60,7 @@ function StoriesContent() {
       }
     }
     fetchStories();
-  }, [initialId]);
+  }, [initialId, BACKEND_URL]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < stories.length - 1) {

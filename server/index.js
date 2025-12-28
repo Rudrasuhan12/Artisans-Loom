@@ -8,8 +8,15 @@ const cron = require('node-cron');
 const { PrismaClient } = require('@prisma/client');
 const { Pool } = require('pg'); 
 const { PrismaPg } = require('@prisma/adapter-pg'); 
-// [FIX]: Correct named import for the new SDK
 const { GoogleGenAI } = require("@google/genai"); 
+
+// [FIX]: Immediate check for required environment variables
+if (!process.env.DATABASE_URL) {
+  console.error("FATAL ERROR: DATABASE_URL is not defined. Check Render Environment settings.");
+}
+if (!process.env.GEMINI_API_KEY) {
+  console.error("FATAL ERROR: GEMINI_API_KEY is not defined. AI features will fail.");
+}
 
 const app = express();
 
@@ -17,12 +24,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Prisma 7 Driver Adapter Initialization
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// [FIX]: Optimized Pool Configuration for Production Stability
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  max: 10, // Recommended for small Render instances
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// [FIX]: Initialization using the correct Class constructor
+// AI Initialization
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const server = http.createServer(app);
@@ -56,13 +69,11 @@ async function generateAutomatedStory() {
     const artisan = eligibleArtisans[Math.floor(Math.random() * eligibleArtisans.length)];
     const prompt = `Write a beautiful 300-word spotlight for artisan ${artisan.name} who does ${artisan.profile?.craftType || 'traditional crafts'}. Return ONLY JSON with keys: "title", "excerpt", "content".`;
 
-    // [FIX]: Updated method call for Gemini 2.0 Flash
     const result = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash-lite",
       contents: [{ role: "user", parts: [{ text: prompt }] }]
     });
 
-    // Extracting the text response correctly from the new response structure
     const responseText = result.text; 
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     
@@ -105,6 +116,7 @@ app.get('/api/stories', async (req, res) => {
     });
     res.json(stories);
   } catch (error) {
+    console.error("Fetch Stories Error:", error);
     res.status(500).json({ error: "Could not fetch stories." });
   }
 });
@@ -126,6 +138,7 @@ io.on('connection', (socket) => {
         timestamp: newBid.timestamp
       });
     } catch (error) {
+      console.error("Bid Placement Error:", error);
       socket.emit('error', { message: "Could not place bid." });
     }
   });
@@ -141,11 +154,12 @@ cron.schedule('* * * * *', async () => {
     });
     for (let auction of expiredAuctions) {
       await prisma.auctionItem.update({ where: { id: auction.id }, data: { status: 'SOLD' } });
+      console.log(`Closed auction: ${auction.id}`);
     }
-  } catch (error) { console.error("Cron Error:", error); }
+  } catch (error) { console.error("Auction Cron Error:", error); }
 });
 
 cron.schedule('0 * * * *', () => generateAutomatedStory());
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
