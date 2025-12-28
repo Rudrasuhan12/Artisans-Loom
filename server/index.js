@@ -10,12 +10,12 @@ const { Pool } = require('pg');
 const { PrismaPg } = require('@prisma/adapter-pg'); 
 const { GoogleGenAI } = require("@google/genai"); 
 
-// [FIX]: Immediate check for required environment variables
+// Mandatory check for environment variables
 if (!process.env.DATABASE_URL) {
-  console.error("FATAL ERROR: DATABASE_URL is not defined. Check Render Environment settings.");
+  console.error("FATAL ERROR: DATABASE_URL is not defined.");
 }
 if (!process.env.GEMINI_API_KEY) {
-  console.error("FATAL ERROR: GEMINI_API_KEY is not defined. AI features will fail.");
+  console.error("FATAL ERROR: GEMINI_API_KEY is not defined.");
 }
 
 const app = express();
@@ -24,10 +24,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// [FIX]: Optimized Pool Configuration for Production Stability
+// 1. Prisma 7 + PostgreSQL Driver Adapter Setup
+// This configuration is optimized for connection pooling on platforms like Render/Supabase
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 10, // Recommended for small Render instances
+  max: 10, 
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
@@ -35,8 +36,8 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// AI Initialization
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// 2. AI Initialization (Using the latest Google AI SDK)
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -50,6 +51,7 @@ const io = new Server(server, {
 async function generateAutomatedStory() {
   console.log("Starting automated Artisan Spotlight generation...");
   try {
+    // Select an artisan who hasn't been featured yet
     const eligibleArtisans = await prisma.user.findMany({
       where: { 
         role: 'ARTISAN',
@@ -69,17 +71,17 @@ async function generateAutomatedStory() {
     const artisan = eligibleArtisans[Math.floor(Math.random() * eligibleArtisans.length)];
     const prompt = `Write a beautiful 300-word spotlight for artisan ${artisan.name} who does ${artisan.profile?.craftType || 'traditional crafts'}. Return ONLY JSON with keys: "title", "excerpt", "content".`;
 
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
-      contents: [{ role: "user", parts: [{ text: prompt }] }]
-    });
-
-    const responseText = result.text; 
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    // Using gemini-1.5-flash for stable free-tier performance
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text(); 
     
+    // Extract JSON from potential Markdown formatting
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("AI failed to return valid JSON.");
     const storyData = JSON.parse(jsonMatch[0]);
 
+    // Save to Database
     await prisma.story.create({
       data: {
         title: storyData.title,
@@ -99,22 +101,37 @@ async function generateAutomatedStory() {
 }
 
 // --- API ENDPOINTS ---
+
+// Manual Trigger for Testing
 app.get('/api/stories/trigger', async (req, res) => {
   const result = await generateAutomatedStory();
   res.send(result);
 });
 
+// Fetch all stories with mapped IDs for the Reels frontend
 app.get('/api/stories', async (req, res) => {
   try {
     const stories = await prisma.story.findMany({
       orderBy: { createdAt: 'desc' },
       include: { 
         featuredArtisan: {
-          select: { name: true, profile: { select: { location: true } } }
+          select: { 
+            id: true, 
+            name: true, 
+            profile: { select: { location: true } } 
+          }
         } 
       }
     });
-    res.json(stories);
+    
+    // [FIX]: Crucial mapping to ensure IDs are accessible for redirection
+    const responseData = stories.map(story => ({
+      ...story,
+      // Ensure featuredArtisanId is available at the top level
+      featuredArtisanId: story.featuredArtisan.id 
+    }));
+
+    res.json(responseData);
   } catch (error) {
     console.error("Fetch Stories Error:", error);
     res.status(500).json({ error: "Could not fetch stories." });
@@ -125,6 +142,7 @@ app.get('/api/stories', async (req, res) => {
 io.on('connection', (socket) => {
   console.log(`User Connected: ${socket.id}`);
   socket.on('join_auction', (auctionId) => socket.join(auctionId));
+  
   socket.on('place_bid', async (data) => {
     const { auctionId, userId, amount } = data;
     try {
@@ -142,10 +160,13 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: "Could not place bid." });
     }
   });
+  
   socket.on('disconnect', () => console.log('User Disconnected'));
 });
 
 // --- CRON JOBS ---
+
+// Every minute: Close expired auctions
 cron.schedule('* * * * *', async () => {
   const now = new Date();
   try {
@@ -153,12 +174,16 @@ cron.schedule('* * * * *', async () => {
       where: { endTime: { lt: now }, status: 'ACTIVE' }
     });
     for (let auction of expiredAuctions) {
-      await prisma.auctionItem.update({ where: { id: auction.id }, data: { status: 'SOLD' } });
+      await prisma.auctionItem.update({ 
+        where: { id: auction.id }, 
+        data: { status: 'SOLD' } 
+      });
       console.log(`Closed auction: ${auction.id}`);
     }
   } catch (error) { console.error("Auction Cron Error:", error); }
 });
 
+// Every hour: Generate a new spotlight
 cron.schedule('0 * * * *', () => generateAutomatedStory());
 
 const PORT = process.env.PORT || 3001;

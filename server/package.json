@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "postinstall": "cp ../client/prisma/schema.prisma ./schema.prisma && npx prisma generate --schema ./schema.prisma && rm ./schema.prisma"
+    "postinstall": "shx cp ../client/prisma/schema.prisma ./schema.prisma && npx prisma generate --schema ./schema.prisma && shx rm ./schema.prisma"
   },
   "keywords": [
     "websocket",
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.0",
-    "prisma": "7.2.0"
+    "prisma": "7.2.0",
+    "shx": "^0.4.0"
   }
 }
