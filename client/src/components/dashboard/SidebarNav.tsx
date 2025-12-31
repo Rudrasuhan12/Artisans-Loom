@@ -15,18 +15,18 @@ export default function SidebarNav({ role }: { role: string }) {
 
   if (role === "ARTISAN") {
     links = [
-      { name: t.dashboard, href: "/artisan", icon: LayoutDashboard },
-      { name: t.products, href: "/artisan/products", icon: ShoppingBag },
-      { name: t.analytics, href: "/artisan/analytics", icon: BarChart3 },
+      { name: t.nav?.dashboard || "Dashboard", href: "/artisan", icon: LayoutDashboard },
+      { name: "My Masterpieces", href: "/artisan/products", icon: ShoppingBag },
+      { name: "Analytics", href: "/artisan/analytics", icon: BarChart3 },
       { name: "Community", href: "/artisan/community", icon: Users },
-      { name: t.settings, href: "/artisan/settings", icon: Settings },
+      { name: t.nav?.settings || "Settings", href: "/artisan/settings", icon: Settings },
     ];
   } else {
     links = [
       { name: "Home", href: "/customer", icon: Home },
       { name: "My Orders", href: "/customer/orders", icon: Package },
       { name: "My Cart", href: "/customer/cart", icon: ShoppingCart },
-      { name: t.settings, href: "/customer/settings", icon: Settings },
+      { name: t.nav?.settings || "Settings", href: "/customer/settings", icon: Settings },
     ];
   }
 

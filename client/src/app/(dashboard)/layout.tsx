@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // [FIXED]: Role-aware navigation links
   const sidebarLinks = role === "ARTISAN" ? [
-    { name: t.dashboard || "Dashboard", href: "/artisan", icon: LayoutDashboard },
+    { name: t.nav?.dashboard || "Dashboard", href: "/artisan", icon: LayoutDashboard },
     { name: "My Masterpieces", href: "/artisan/products", icon: ShoppingBag },
     { name: "My Purchases", href: "/artisan/orders", icon: Package },
     { name: t.analytics || "Analytics", href: "/artisan/analytics", icon: BarChart3 },

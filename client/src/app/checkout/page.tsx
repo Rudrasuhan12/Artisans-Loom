@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ShieldCheck, Truck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createOrderAction } from "@/app/actions/orders";
+import UniversalBackButton from "@/components/ui/BackButton";
 
 export default function CheckoutPage() {
   const { items, clearCart } = useCartStore();
@@ -57,9 +58,7 @@ export default function CheckoutPage() {
   return (
     <main className="bg-[#FDFBF7] min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-6xl">
-        <Link href="/shop" className="flex items-center gap-2 text-[#8C7B70] hover:text-[#4A3526] mb-8 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back to Shop
-        </Link>
+        <UniversalBackButton position="top-left" fallbackUrl="/shop" />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="space-y-8">

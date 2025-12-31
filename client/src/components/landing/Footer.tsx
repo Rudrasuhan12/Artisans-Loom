@@ -1,9 +1,8 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Facebook, Instagram, Twitter, Linkedin, Youtube, ArrowRight, MapPin, Mail, Phone } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Footer() {
   return (
@@ -38,7 +37,7 @@ export default function Footer() {
                 </span>
              </div>
              <p className="text-[#8C7B70] text-lg leading-relaxed max-w-md">
-                Bridging the gap between India’s master artisans and the world. Empowering heritage through technology.
+                Bridging the gap between India's master artisans and the world. Empowering heritage through technology.
              </p>
 
              <div className="flex gap-4">
@@ -78,8 +77,17 @@ export default function Footer() {
            <div className="space-y-6">
               <h5 className="text-lg font-serif font-bold text-[#D4AF37]">Shop</h5>
               <ul className="space-y-3 text-[#E5DCCA]/80">
-                 {["New Arrivals", "Best Sellers", "Home Decor", "Fashion & Textiles", "Accessories", "Gift Cards"].map(link => (
-                    <li key={link} className="hover:text-[#D97742] transition-colors cursor-pointer w-fit">{link}</li>
+                 {[
+                   { name: 'New Arrivals', link: '/shop' },
+                   { name: 'Best Sellers', link: '/shop' },
+                   { name: 'Home Decor', link: '/shop?category=Home Decor' },
+                   { name: 'Fashion & Textiles', link: '/shop?category=Textiles' },
+                   { name: 'Accessories', link: '/shop?category=Jewelry' },
+                   { name: 'Gift Cards', link: '/shop' }
+                 ].map(item => (
+                    <li key={item.name} className="hover:text-[#D97742] transition-colors w-fit">
+                      <Link href={item.link} className="block py-0.5">{item.name}</Link>
+                    </li>
                  ))}
               </ul>
            </div>
@@ -87,8 +95,17 @@ export default function Footer() {
            <div className="space-y-6">
               <h5 className="text-lg font-serif font-bold text-[#D4AF37]">Company</h5>
               <ul className="space-y-3 text-[#E5DCCA]/80">
-                 {["Our Story", "The Artisans", "Impact Report", "Careers", "Press & Media", "Contact Us"].map(link => (
-                    <li key={link} className="hover:text-[#D97742] transition-colors cursor-pointer w-fit">{link}</li>
+                 {[
+                   { name: 'Our Story', link: '/about' },
+                   { name: 'The Artisans', link: '/artisans' },
+                   { name: 'Impact Report', link: '/about' },
+                   { name: 'Careers', link: '/careers' },
+                   { name: 'Press & Media', link: '/press-media' },
+                   { name: 'Contact Us', link: '/contact' }
+                 ].map(item => (
+                    <li key={item.name} className="hover:text-[#D97742] transition-colors w-fit">
+                      <Link href={item.link} className="block py-0.5">{item.name}</Link>
+                    </li>
                  ))}
               </ul>
            </div>
@@ -96,8 +113,17 @@ export default function Footer() {
            <div className="space-y-6">
               <h5 className="text-lg font-serif font-bold text-[#D4AF37]">Support</h5>
               <ul className="space-y-3 text-[#E5DCCA]/80">
-                 {["Help Center", "Shipping & Delivery", "Returns & Exchanges", "Track Order", "Size Guide", "Privacy Policy"].map(link => (
-                    <li key={link} className="hover:text-[#D97742] transition-colors cursor-pointer w-fit">{link}</li>
+                 {[
+                   { name: 'Help Center', link: '/help' },
+                   { name: 'Shipping & Delivery', link: '/shipping-delivery' },
+                   { name: 'Returns & Exchanges', link: '/returns-exchanges' },
+                   { name: 'Track Order', link: '/track-order' },
+                   { name: 'Size Guide', link: '/size-guide' },
+                   { name: 'Privacy Policy', link: '/privacy-policy' }
+                 ].map(item => (
+                    <li key={item.name} className="hover:text-[#D97742] transition-colors w-fit">
+                      <Link href={item.link} className="block py-0.5">{item.name}</Link>
+                    </li>
                  ))}
               </ul>
            </div>
@@ -126,8 +152,8 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-[#D4AF37]/20 text-sm text-[#8C7B70]">
            <p>© 2025 The Artisan's Loom. All Rights Reserved.</p>
            <div className="flex gap-6 mt-4 md:mt-0">
-              <span className="hover:text-[#FDFBF7] cursor-pointer">Terms of Service</span>
-              <span className="hover:text-[#FDFBF7] cursor-pointer">Privacy Policy</span>
+              <Link href="/terms-of-service" className="hover:text-[#FDFBF7] cursor-pointer">Terms of Service</Link>
+              <Link href="/privacy-policy" className="hover:text-[#FDFBF7] cursor-pointer">Privacy Policy</Link>
               <span className="hover:text-[#FDFBF7] cursor-pointer">Cookie Policy</span>
            </div>
         </div>

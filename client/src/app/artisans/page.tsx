@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
-import BackButton from "@/components/dashboard/BackButton";
+import UniversalBackButton from "@/components/ui/BackButton";
 import PremiumAvatar from "@/components/ui/premium-avatar";
 import { RoyalDivider } from "@/components/ui/royal-divider";
 
@@ -25,6 +25,7 @@ export default async function AllArtisansPage({ searchParams }: { searchParams: 
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/paper.png')] opacity-50"></div>
 
       <div className="container mx-auto px-4 py-16 relative z-10">
+         <UniversalBackButton position="top-left" fallbackUrl="/" />
 
          <div className="text-center mb-20 space-y-3">
            <div className="inline-block px-4 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] font-bold uppercase tracking-[0.3em] rounded-full">
@@ -93,7 +94,6 @@ export default async function AllArtisansPage({ searchParams }: { searchParams: 
          </div>
 
       </div>
-      <BackButton />
     </div>
   );
 }
