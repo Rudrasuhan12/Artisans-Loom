@@ -6,59 +6,46 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  ARTISAN
-  CUSTOMER
-  ADMIN
-  PENDING
-}
-
-enum AuctionStatus {
-  ACTIVE
-  SOLD
-  UNSOLD
-}
-
 model User {
-  id           String        @id @default(cuid())
-  clerkId      String        @unique
-  email        String        @unique
-  name         String?
-  role         Role          @default(PENDING)
-  languages    String[]
-  preferences  Json?
-  profile      Profile?
-  products     Product[]
-  orders       Order[]
-  bids         Bid[]
-  stories      Story[]       
-  forumPosts   ForumPost[]
-  forumLikes   ForumLike[]
-  followedBy   Follows[]     @relation("following")
-  following    Follows[]     @relation("follower")
-  chatHistory  ChatHistory[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  reviewsWritten  Review[]  @relation("WrittenReviews")
-  reviewsReceived Review[]  @relation("ReceivedReviews")
-  image        String? 
+  id              String        @id @default(cuid())
+  clerkId         String        @unique
+  email           String        @unique
+  name            String?
+  role            Role          @default(PENDING)
+  languages       String[]
+  preferences     Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  image           String?
+  bids            Bid[]
+  chatHistory     ChatHistory[]
+  following       Follows[]     @relation("follower")
+  followedBy      Follows[]     @relation("following")
+  forumLikes      ForumLike[]
+  forumPosts      ForumPost[]
+  orders          Order[]
+  products        Product[]
+  profile         Profile?
+  reviewsReceived Review[]      @relation("ReceivedReviews")
+  reviewsWritten  Review[]      @relation("WrittenReviews")
+  stories         Story[]
 }
 
 model Profile {
   id                String  @id @default(cuid())
-  user              User    @relation(fields: [userId], references: [id])
   userId            String  @unique
   businessName      String?
-  craftType         String? 
+  craftType         String?
   bio               String?
   location          String?
-  state             String? 
-  yearsOfExperience Int? 
-  phoneNumber       String?
-  streetAddress     String?
+  state             String?
+  yearsOfExperience Int?
   city              String?
+  country           String? @default("India")
+  phoneNumber       String?
   pincode           String?
-  country           String? @default("India")   
+  streetAddress     String?
+  user              User    @relation(fields: [userId], references: [id])
 }
 
 model Product {
@@ -73,36 +60,35 @@ model Product {
   tags        String[]
   views       Int          @default(0)
   salesCount  Int          @default(0)
-  artisan     User         @relation(fields: [artisanId], references: [id])
   artisanId   String
-  auction     AuctionItem?
-  orderItems  OrderItem[]  
   createdAt   DateTime     @default(now())
+  auction     AuctionItem?
+  orderItems  OrderItem[]
+  artisan     User         @relation(fields: [artisanId], references: [id])
 }
 
 model Order {
   id         String      @id @default(cuid())
   total      Float
-  status     String      @default("PENDING") 
-  customer   User        @relation(fields: [customerId], references: [id])
+  status     String      @default("PENDING")
   customerId String
-  items      OrderItem[] 
   createdAt  DateTime    @default(now())
+  customer   User        @relation(fields: [customerId], references: [id])
+  items      OrderItem[]
 }
 
 model OrderItem {
   id        String  @id @default(cuid())
-  order     Order   @relation(fields: [orderId], references: [id])
   orderId   String
-  product   Product @relation(fields: [productId], references: [id])
   productId String
   quantity  Int
-  price     Float   
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 model AuctionItem {
   id           String        @id @default(cuid())
-  product      Product       @relation(fields: [productId], references: [id])
   productId    String        @unique
   basePrice    Float
   reservePrice Float?
@@ -110,6 +96,7 @@ model AuctionItem {
   startTime    DateTime      @default(now())
   endTime      DateTime
   status       AuctionStatus @default(ACTIVE)
+  product      Product       @relation(fields: [productId], references: [id])
   bids         Bid[]
 }
 
@@ -117,30 +104,30 @@ model Bid {
   id        String      @id @default(cuid())
   amount    Float
   timestamp DateTime    @default(now())
-  user      User        @relation(fields: [userId], references: [id])
   userId    String
-  auction   AuctionItem @relation(fields: [auctionId], references: [id])
   auctionId String
+  auction   AuctionItem @relation(fields: [auctionId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
 }
 
 model ChatHistory {
   id       String @id @default(cuid())
   messages Json
-  user     User   @relation(fields: [userId], references: [id])
   userId   String
+  user     User   @relation(fields: [userId], references: [id])
 }
 
 model Story {
   id                String   @id @default(cuid())
   title             String
-  excerpt           String   @db.Text             // Short summary for cards
-  content           String   @db.Text             // Full story body
-  category          String   @default("Artisan Spotlights")
-  author            String   @default("The Artisan's Loom")
-  heroImage         String?
-  featuredArtisanId String
-  featuredArtisan   User     @relation(fields: [featuredArtisanId], references: [id]) 
+  content           String
   createdAt         DateTime @default(now())
+  category          String   @default("Artisan Spotlights")
+  excerpt           String
+  author            String   @default("The Artisan's Loom")
+  featuredArtisanId String
+  heroImage         String?
+  featuredArtisan   User     @relation(fields: [featuredArtisanId], references: [id])
 }
 
 model ForumPost {
@@ -149,46 +136,54 @@ model ForumPost {
   tags      String[]
   flagged   Boolean     @default(false)
   createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt 
-  
+  updatedAt DateTime    @updatedAt
   userId    String
-  user      User        @relation(fields: [userId], references: [id])
-
   parentId  String?
+  likes     ForumLike[]
   parent    ForumPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
   children  ForumPost[] @relation("PostReplies")
-
-  likes     ForumLike[]
+  user      User        @relation(fields: [userId], references: [id])
 }
 
 model ForumLike {
-  id      String    @id @default(cuid())
-  postId  String
-  post    ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade) 
-  userId  String
-  user    User      @relation(fields: [userId], references: [id])
+  id     String    @id @default(cuid())
+  postId String
+  userId String
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user   User      @relation(fields: [userId], references: [id])
 
   @@unique([postId, userId])
 }
 
 model Follows {
-  follower    User   @relation("follower", fields: [followerId], references: [id])
   followerId  String
-  following   User   @relation("following", fields: [followingId], references: [id])
   followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id])
+  following   User   @relation("following", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
 }
 
 model Review {
   id        String   @id @default(cuid())
-  rating    Int      
+  rating    Int
   comment   String
   createdAt DateTime @default(now())
-
   authorId  String
-  author    User     @relation("WrittenReviews", fields: [authorId], references: [id])
-
   artisanId String
   artisan   User     @relation("ReceivedReviews", fields: [artisanId], references: [id])
+  author    User     @relation("WrittenReviews", fields: [authorId], references: [id])
+}
+
+enum Role {
+  ARTISAN
+  CUSTOMER
+  ADMIN
+  PENDING
+}
+
+enum AuctionStatus {
+  ACTIVE
+  SOLD
+  UNSOLD
 }

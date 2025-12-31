@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { RoyalDivider } from "@/components/ui/royal-divider";
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 
 function AnimatedCounter({ end, prefix = "", suffix = "" }: { end: number; prefix?: string; suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -95,9 +96,11 @@ export default function ImpactSection() {
                    </p>
 
                    <div className="pt-4">
+                      <Link href="/shop">
                       <Button className="h-12 px-8 rounded-lg bg-[#FFFBF5] hover:bg-[#F2E6D8] text-[#2F334F] text-lg font-bold shadow-lg transition-transform active:scale-95">
                          Explore Collection
                       </Button>
+                      </Link>
                    </div>
                 </div>
              </div>
