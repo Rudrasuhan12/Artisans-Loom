@@ -8,6 +8,27 @@ import { Role } from "@prisma/client";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+async function checkContentSafety(text: string): Promise<boolean> {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const prompt = `
+      You are a Content Moderator for a professional artisan platform.
+      Analyze this text: "${text}"
+      
+      Is this text toxic, hate speech, explicit, or highly inappropriate?
+      Output ONLY one word: "SAFE" or "UNSAFE".
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const decision = result.response.text().trim().toUpperCase();
+    
+    return decision.includes("UNSAFE");
+  } catch (error) {
+    console.error("Moderation Error:", error);
+    return false;
+  }
+}
+
 export async function createPostAction(formData: FormData) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
@@ -18,6 +39,8 @@ export async function createPostAction(formData: FormData) {
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!dbUser || !content) return;
 
+  const isFlagged = await checkContentSafety(content);
+
   const mentionedUsers = content.match(/@\w+/g) || [];
 
   const post = await prisma.forumPost.create({
@@ -25,14 +48,16 @@ export async function createPostAction(formData: FormData) {
       content,
       userId: dbUser.id,
       parentId: parentId || null,
-      tags: mentionedUsers as string[] 
+      tags: mentionedUsers as string[], 
+      flagged: isFlagged,
     }
   });
-
+if (!isFlagged) {
   if ((!parentId && (content.toLowerCase().includes("@mitra") || content.toLowerCase().includes("craft mitra"))) || 
       (parentId && (content.toLowerCase().includes("@mitra")))) {
     await generateMitraReply(content, post.id);
   }
+}
 
   revalidatePath("/artisan/community");
   revalidatePath(`/artisan/profile/${dbUser.id}`);
@@ -43,13 +68,15 @@ export async function editPostAction(postId: string, newContent: string) {
   if (!userId) return;
 
   const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+
+  const isFlagged = await checkContentSafety(newContent);
   
   const post = await prisma.forumPost.findUnique({ where: { id: postId } });
   
   if (post && post.userId === dbUser?.id) {
     await prisma.forumPost.update({
       where: { id: postId },
-      data: { content: newContent }
+      data: { content: newContent, flagged: isFlagged }
     });
     revalidatePath("/artisan/community");
   }

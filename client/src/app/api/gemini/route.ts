@@ -10,10 +10,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "API Key Missing" }, { status: 500 });
     }
 
-    // 1. Initialize with the stable 'v1' API version to avoid the 404/Retired errors
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // 2. Use 'gemini-2.5-flash', which is the current stable workhorse model as of late 2025
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash" 
     });
@@ -27,7 +25,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ text });
 
   } catch (error: any) {
-    // 3. Handle the "Limit 0" Quota issue
     if (error.message?.includes("429") || error.message?.includes("limit: 0")) {
       console.error("❌ Gemini API: Quota/Billing issue detected.");
       return NextResponse.json(

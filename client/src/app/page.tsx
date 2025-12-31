@@ -11,28 +11,32 @@ export const dynamic = 'force-dynamic';
 
 export default async function LandingPage() {
 
-  const realProducts = await prisma.product.findMany({
-    take: 4,
-    orderBy: { 
-      createdAt: 'desc' 
-    },
-    include: {
-      artisan: {
-        include: {
-          profile: true
-        }
-      }
-    }
+  const allProducts = await prisma.product.findMany({
+    take: 20,
+    include: { artisan: true },
+    orderBy: { createdAt: 'desc' }
   });
+
+  const shuffled = allProducts.sort(() => 0.5 - Math.random());
+  const randomProducts = shuffled.slice(0, 4);
+
+   const allArtisans = await prisma.user.findMany({
+    where: { role: "ARTISAN" },
+    include: { profile: true },
+    take: 20,
+  });
+
+  const shuffledArtisans = allArtisans.sort(() => 0.5 - Math.random());
+  const featuredArtisans = shuffledArtisans.slice(0, 3);
 
   return (
     <main className="min-h-screen bg-[#FDFBF7] flex flex-col">
       <HeroSection />
-      <FeaturedSection products={realProducts} />
+      <FeaturedSection products={randomProducts} />
       
       <TrendingSection />
       <RegionalMap />
-      <ArtisanSpotlight />
+      <ArtisanSpotlight artisans={featuredArtisans} />
       <ImpactSection />
       
       <Footer />

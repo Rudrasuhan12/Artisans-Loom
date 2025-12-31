@@ -6,68 +6,96 @@ import { SITE_MAP } from "@/lib/site-map";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+const cleanJSON = (text: string) => {
+  const match = text.match(/\{[\s\S]*\}/);
+  return match ? match[0] : text;
+};
+
 export async function POST(req: Request) {
   try {
-    const { message, history } = await req.json();
+    const { message, history, visualContext } = await req.json();
     const { userId } = await auth();
 
     let userRole = "GUEST";
     let userName = "Traveler";
     let dbUser = null;
+    let personalContext = "User is a guest exploring the site.";
 
     if (userId) {
       dbUser = await prisma.user.findUnique({ 
         where: { clerkId: userId },
-        include: { orders: { include: { items: true } } } 
+        include: { 
+          orders: { 
+            include: { items: { include: { product: true } } }, 
+            orderBy: { createdAt: 'desc' }, 
+            take: 3 
+          },
+          products: {
+            select: { title: true, salesCount: true, stock: true, views: true },
+            orderBy: { salesCount: 'desc' }
+          } 
+        } 
       });
+
       if (dbUser) {
         userRole = dbUser.role;
-        userName = dbUser.name || "Friend";
+        userName = dbUser.name?.split(" ")[0] || "Friend";
+
+        if (userRole === "ARTISAN") {
+          const totalSales = dbUser.products.reduce((a, b) => a + b.salesCount, 0);
+          const topItem = dbUser.products[0]?.title || "None";
+          personalContext = `User is an ARTISAN (Seller). Sales: ${totalSales}. Top Item: ${topItem}. Needs business advice.`;
+        } else {
+          const lastOrder = dbUser.orders[0];
+          const lastItem = lastOrder?.items[0]?.product.title;
+          personalContext = `User is a PATRON (Buyer). Last purchase: ${lastItem || "None"}.`;
+        }
       }
     }
 
-    const artisanCount = await prisma.user.count({ where: { role: "ARTISAN" } });
-    const productCount = await prisma.product.count();
-    const trendingProducts = await prisma.product.findMany({
-      take: 3,
-      orderBy: { views: 'desc' },
-      select: { title: true, category: true, price: true }
+    const trending = await prisma.product.findMany({ 
+      take: 4, orderBy: { views: 'desc' }, 
+      select: { title: true, category: true, price: true, artisan: { select: { profile: { select: { state: true } } } } } 
     });
-    const trendingContext = trendingProducts.map(p => `${p.title} (${p.category})`).join(", ");
-    const websiteFeatures = `
-      1. Voice-Powered Product Listing: Artisans can list items just by speaking.
-      2. Gifting & Decor Assistant: AI helps users find the perfect gift or home decor.
-      3. Regional Discovery Map: Explore crafts by state (e.g., Banarasi from UP).
-      4. Multilingual Support: The platform works in 12+ Indian languages.
-      5. Artisan Dashboard: Analytics, inventory management, and business insights.
-      6. Story-Rich Profiles: Every product tells the story of its maker.
-    `;
+    
+    const trendingText = trending.map(t => `${t.title} (${t.category}, ₹${t.price})`).join(", ");
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     const systemPrompt = `
-      You are "Craft Mitra", the AI Soul of "The Artisan's Loom" platform.
+      You are "Craft Mitra", the Royal AI Concierge of "The Artisan's Loom".
       
-      -- CONTEXT --
-      User: ${userName} (${userRole})
-      Live Stats: ${artisanCount} Artisans, ${productCount} Products.
-      Trending Now: ${trendingContext || "Banarasi Sarees, Blue Pottery"}
-      Website Features: ${websiteFeatures}
-      Available Pages: ${JSON.stringify(SITE_MAP)}
+      -- PERSONA --
+      Tone: Warm, Sophisticated, Cultured, Helpful. NOT Robotic.
+      Style: Use Indian English nuances (Namaste, Ji, Heritage, Masterpiece).
+      
+      -- LIVE CONTEXT --
+      User: ${userName} (${userRole}).
+      Personal Data: ${personalContext}
+      Current Visual Context (What they see): ${JSON.stringify(visualContext || "None")}
+      Trending Items: ${trendingText}
+      Site Map: ${JSON.stringify(SITE_MAP)}
 
-      -- YOUR JOBS --
-      1. **Explainer:** If asked "What can you do?" or "Features", summarize the Website Features warmly.
-      2. **Advisor:** If asked "What should I make?" (Artisan) or "What is trending?" (Buyer), use the Trending Data to give advice.
-      3. **Concierge:** Check order status if asked.
-      4. **Navigator:** ONLY navigate if the user EXPLICITLY says "Go to", "Open", "Take me to", or "Navigate". Do NOT navigate for general questions like "How many products do I have?".
+      -- CAPABILITIES (INTENTS) --
+      1. **SEARCH:** Find products. Extract filters: { query, maxPrice, category, region }.
+      2. **BUY_PRODUCT:** User wants to buy specific item. Extract { productName }.
+      3. **TRACK_ORDER:** User asks about order status.
+      4. **ANALYTICS:** (Artisan Only) Ask about sales/views.
+      5. **COMPARE:** User asks "Compare X and Y". Extract { productA, productB }.
+      6. **NAVIGATE:** User says "Go to X".
+      7. **CHAT:** General questions, history, culture, advice.
 
-      -- STRICT OUTPUT FORMAT (JSON) --
+      -- RULES --
+      - If user asks "What is trending?", show the trending items using SHOW_PRODUCTS.
+      - If user asks "Where is my order?", use TRACK_ORDER.
+      - If user says "Buy [Item]", use BUY_PRODUCT.
+
+      -- OUTPUT JSON FORMAT (MANDATORY) --
       {
-        "intent": "CHAT" | "SEARCH" | "NAVIGATE" | "TRACK_ORDER" | "SHOW_PRODUCTS",
-        "reply": "Your response in the user's detected language.",
-        "searchParams": { "query": "...", "category": "..." } (For SEARCH),
-        "targetPage": "/path" (Only if intent is NAVIGATE),
-        "data": null (For orders/products)
+        "intent": "CHAT" | "SEARCH" | "NAVIGATE" | "TRACK_ORDER" | "BUY_PRODUCT" | "SHOW_ANALYTICS" | "COMPARE",
+        "reply": "Your spoken response here.",
+        "data": { ...extracted params... },
+        "url": "/path" (For navigation)
       }
     `;
 
@@ -79,51 +107,136 @@ export async function POST(req: Request) {
     });
 
     const result = await chat.sendMessage(message);
-    const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-    const aiResponse = JSON.parse(text);
+    const text = cleanJSON(result.response.text());
+    const ai = JSON.parse(text);
 
-    if (aiResponse.intent === "SEARCH" || message.toLowerCase().includes("show me")) {
+    if (ai.intent === "SEARCH" || message.toLowerCase().includes("show me") || message.toLowerCase().includes("recommend")) {
+        const filters: any = {};
+
+        if (ai.data?.maxPrice) filters.price = { lte: parseFloat(ai.data.maxPrice) };
+        if (ai.data?.category) filters.category = { contains: ai.data.category, mode: "insensitive" };
+
+        let regionFilter = {};
+        if (ai.data?.region) {
+           regionFilter = { artisan: { profile: { state: { contains: ai.data.region, mode: "insensitive" } } } };
+        }
+
         const products = await prisma.product.findMany({
             where: {
-                OR: [
-                    { title: { contains: aiResponse.searchParams?.query || "", mode: "insensitive" } },
-                    { category: { contains: aiResponse.searchParams?.category || "", mode: "insensitive" } }
+                AND: [
+                    { 
+                        OR: [
+                            { title: { contains: ai.data?.query || "", mode: "insensitive" } },
+                            { description: { contains: ai.data?.query || "", mode: "insensitive" } },
+                            { category: { contains: ai.data?.query || "", mode: "insensitive" } },
+                            { tags: { has: ai.data?.query || "" } }
+                        ]
+                    },
+                    filters,
+                    regionFilter
                 ]
             },
-            take: 3
+            take: 4,
+            include: { artisan: { include: { profile: true } } }
         });
-        
+
+        if (products.length === 0) {
+           return NextResponse.json({
+               text: "I couldn't find an exact match in our loom, but here are some trending masterpieces you might adore.",
+               action: "SHOW_PRODUCTS",
+               data: await prisma.product.findMany({ take: 3, orderBy: { views: 'desc' } })
+           });
+        }
+
         return NextResponse.json({
-            text: products.length ? `Here are some ${aiResponse.searchParams?.query || "treasures"} I found for you.` : "I couldn't find exactly that, but here is what we have.",
+            text: ai.reply,
             action: "SHOW_PRODUCTS",
             data: products
         });
     }
 
-    if (aiResponse.intent === "TRACK_ORDER") {
-        if (!dbUser) return NextResponse.json({ text: "Please sign in to track orders.", action: "NAVIGATE", url: "/sign-in" });
+    if (ai.intent === "BUY_PRODUCT") {
+        const productName = ai.data?.productName || message.replace(/buy|order|get/gi, "").trim();
         
-        const lastOrder = dbUser.orders[0];
-        if (!lastOrder) return NextResponse.json({ text: "You haven't placed any orders yet.", action: "NONE" });
+        const product = await prisma.product.findFirst({
+            where: { 
+                OR: [
+                   { title: { contains: productName, mode: "insensitive" } },
+                   { description: { contains: productName, mode: "insensitive" } }
+                ]
+            }
+        });
 
+        if (product) {
+            return NextResponse.json({
+                text: `Excellent choice. I have added the ${product.title} to your cart.`,
+                action: "ADD_TO_CART",
+                data: product
+            });
+        } else {
+             return NextResponse.json({
+                text: "I couldn't locate that specific item. Would you like to see similar treasures?",
+                action: "SEARCH",
+                data: { query: productName }
+            });
+        }
+    }
+
+    if (ai.intent === "SHOW_ANALYTICS") {
+        if (userRole !== "ARTISAN") return NextResponse.json({ text: "My analytics scrolls are reserved for registered Artisans.", action: "NONE" });
         return NextResponse.json({
-            text: `Your order is currently ${lastOrder.status}.`,
-            action: "SHOW_ORDER",
-            data: lastOrder
+            text: ai.reply,
+            action: "NAVIGATE",
+            url: "/artisan/analytics"
         });
     }
 
+    if (ai.intent === "TRACK_ORDER") {
+       if (!dbUser) return NextResponse.json({ text: "Please sign in to access your order history.", action: "NAVIGATE", url: "/sign-in" });
+       const lastOrder = dbUser.orders[0];
+       
+       if (!lastOrder) return NextResponse.json({ text: "I see no active orders in your ledger.", action: "NONE" });
+       
+       return NextResponse.json({
+           text: `Your order #${lastOrder.id.slice(-6).toUpperCase()} is currently ${lastOrder.status}.`,
+           action: "SHOW_ORDER",
+           data: lastOrder
+       });
+    }
+
+    if (ai.intent === "COMPARE") {
+       const p1Name = ai.data?.productA;
+       const p2Name = ai.data?.productB;
+       
+       const products = await prisma.product.findMany({
+          where: {
+             title: { in: [p1Name, p2Name], mode: "insensitive" } 
+          },
+          take: 2
+       });
+       
+       if (products.length < 2) {
+          return NextResponse.json({ text: "I need two valid product names to perform a comparison.", action: "NONE" });
+       }
+       
+       return NextResponse.json({
+          text: `Here is a comparison between ${products[0].title} and ${products[1].title}.`,
+          action: "SHOW_PRODUCTS",
+          data: products
+       });
+    }
+
     return NextResponse.json({
-        text: aiResponse.reply,
-        action: aiResponse.intent === "NAVIGATE" ? "NAVIGATE" : "NONE",
-        url: aiResponse.targetPage
+        text: ai.reply,
+        action: ai.intent === "NAVIGATE" ? "NAVIGATE" : "NONE",
+        url: ai.url
     });
 
   } catch (error) {
-    console.error("Mitra Error:", error);
+    console.error("Mitra Brain Error:", error);
     return NextResponse.json({ 
-      text: "My connection to the loom is weak. Please try again.", 
-      action: "NONE" 
+       text: "I apologize, the connection to the archives is momentarily interrupted.", 
+       action: "NONE" 
     });
   }
 }

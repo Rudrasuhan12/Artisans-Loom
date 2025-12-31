@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Mic, X, Sparkles, Globe, Loader2, ShoppingCart, Package, ArrowRight } from "lucide-react";
+import { Mic, X, Sparkles, Globe, Loader2, ShoppingCart, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,10 +20,10 @@ export default function CraftMitra() {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
   const [language, setLanguage] = useState("auto");
-  
   const [visualData, setVisualData] = useState<any>(null); 
   const [visualType, setVisualType] = useState<"PRODUCT" | "ORDER" | null>(null);
 
@@ -31,7 +31,6 @@ export default function CraftMitra() {
   const transcriptRef = useRef(""); 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioQueueRef = useRef<string[]>([]);
-  const isPlayingRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -66,7 +65,7 @@ export default function CraftMitra() {
     if (!isOpen) {
       setIsOpen(true);
       const name = user?.firstName || "Traveler";
-      const greeting = `Namaste ${name}, I am Craft Mitra. How may I serve you?`;
+      const greeting = `Namaste ${name}, I am Mitra. How may I serve you?`;
       setReply(greeting);
       speak(greeting);
       return;
@@ -78,12 +77,13 @@ export default function CraftMitra() {
       setTranscript("");
       transcriptRef.current = "";
       recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language; 
-      try { recognitionRef.current.start(); setIsListening(true); } catch(e) { console.error(e); }
+      try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
     }
   };
 
   const handleSend = async (text: string) => {
-    setIsProcessing(true);   
+    setIsProcessing(true);
+    
     try {
       const response = await fetch('/api/mitra', {
         method: 'POST',
@@ -93,19 +93,45 @@ export default function CraftMitra() {
 
       const data = await response.json();
       setReply(data.text);
-
       await speak(data.text);
 
-      if (data.action === "SHOW_PRODUCTS" || data.action === "SHOW_ORDER") {
-        setVisualType(data.action === "SHOW_PRODUCTS" ? "PRODUCT" : "ORDER");
-        setVisualData(data.data);
-      } else {
-        setVisualData(null);
-        setVisualType(null);
+      if (data.action === "ADD_TO_CART") {
+         setVisualType("PRODUCT");
+         setVisualData(data.data);
+         
+         const product = data.data;
+         addToCartStore({
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            image: product.images?.[0] || "/p1.png",
+            quantity: 1
+         });
+         toast.success("Added to Cart!");
+         
+         setTimeout(() => {
+            setIsOpen(false);
+            router.push("/checkout");
+         }, 4000);
       }
 
-      if (data.action === "NAVIGATE" && data.url) {
+      else if (data.action === "SHOW_PRODUCTS") {
+        setVisualType("PRODUCT");
+        setVisualData(data.data);
+      } 
+
+      else if (data.action === "SHOW_ORDER") {
+        setVisualType("ORDER");
+        setVisualData(data.data);
+      } 
+
+      else if (data.action === "NAVIGATE" && data.url) {
         setTimeout(() => { setIsOpen(false); router.push(data.url); }, 3000);
+      }
+      
+      else {
+        setVisualData(null);
+        setVisualType(null);
       }
 
     } catch (error) {
@@ -128,7 +154,6 @@ export default function CraftMitra() {
       else if (/[\u0C00-\u0C7F]/.test(text)) targetLang = 'te'; 
     }
     const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
-    
     audioQueueRef.current = sentences;
     playQueue(targetLang);
   };
@@ -138,7 +163,6 @@ export default function CraftMitra() {
       setIsSpeaking(false);
       return;
     }
-
     const nextSentence = audioQueueRef.current.shift();
     if (!nextSentence) return;
 
@@ -148,34 +172,22 @@ export default function CraftMitra() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: nextSentence, lang }),
       });
-
       const { url } = await response.json();
-
       if (url) {
         const audio = new Audio(url);
         audioRef.current = audio;
-        
-        audio.onended = () => {
-          playQueue(lang);
-        };
-        
+        audio.onended = () => playQueue(lang);
         audio.play();
-      } else {
-        playQueue(lang);
-      }
-    } catch (e) {
-      console.error(e);
-      playQueue(lang);
-    }
+      } else { playQueue(lang); }
+    } catch (e) { playQueue(lang); }
   };
-
 
   const handleAddToCart = (product: any) => {
     addToCartStore({
       id: product.id,
       title: product.title,
       price: product.price,
-      image: product.images[0] || "/p1.png",
+      image: product.images?.[0] || "/p1.png",
       quantity: 1
     });
     toast.success(`${product.title} added to cart!`);
@@ -204,11 +216,7 @@ export default function CraftMitra() {
             className="fixed inset-0 z-100 bg-black/90 backdrop-blur-md flex flex-col items-center p-4 overflow-hidden"
           >
             <button 
-              onClick={() => { 
-                setIsOpen(false); 
-                if(audioRef.current) audioRef.current.pause(); 
-                setIsSpeaking(false); 
-              }}
+              onClick={() => { setIsOpen(false); if(audioRef.current) audioRef.current.pause(); setIsSpeaking(false); }}
               className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors p-2 z-50"
             >
               <X className="w-10 h-10" />
@@ -224,10 +232,10 @@ export default function CraftMitra() {
                   >
                     {visualType === "PRODUCT" && (
                       <div className="flex gap-6 overflow-x-auto p-4 custom-scrollbar items-center w-full justify-center max-w-full">
-                        {visualData.map((prod: any) => (
+                        {(Array.isArray(visualData) ? visualData : [visualData]).map((prod: any) => (
                           <div key={prod.id} className="min-w-55 w-55 bg-white rounded-2xl overflow-hidden shadow-2xl border border-[#D4AF37] shrink-0">
                             <div className="relative h-32 w-full">
-                              <Image src={prod.images[0] || "/p1.png"} alt={prod.title} fill className="object-cover" />
+                              <Image src={prod.images?.[0] || "/p1.png"} alt={prod.title} fill className="object-cover" />
                             </div>
                             <div className="p-4">
                               <h4 className="text-sm font-bold text-[#4A3526] line-clamp-1">{prod.title}</h4>
@@ -238,6 +246,20 @@ export default function CraftMitra() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {visualType === "ORDER" && (
+                      <div className="w-full max-w-md bg-[#FFFBF5] rounded-2xl p-6 border-2 border-[#D4AF37] shadow-2xl">
+                        <div className="flex items-center gap-4 mb-4 border-b border-[#D4AF37]/20 pb-4">
+                           <Package className="w-8 h-8 text-[#D97742]" />
+                           <div>
+                              <h3 className="font-bold text-[#4A3526]">Order Status</h3>
+                              <p className="text-xs text-[#8C7B70]">#{visualData.id.slice(-8).toUpperCase()}</p>
+                           </div>
+                        </div>
+                        <p className="text-lg font-bold text-[#2F334F]">{visualData.status}</p>
+                        <p className="text-sm text-[#8C7B70]">Total: ₹{visualData.total}</p>
                       </div>
                     )}
                   </motion.div>
@@ -255,26 +277,20 @@ export default function CraftMitra() {
                    transition={{ repeat: Infinity, duration: 2 }}
                    className={`${visualData ? 'w-24 h-24 md:w-32 md:h-32' : 'w-40 h-40 md:w-56 md:h-56'} rounded-full bg-linear-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] flex items-center justify-center relative z-10 border-4 border-white/20 transition-all duration-500`}
                  >
-                   {isListening ? <Mic className={`${visualData ? 'w-10 h-10' : 'w-20 h-20'} text-[#2F334F]`} /> : isProcessing ? <Loader2 className={`${visualData ? 'w-10 h-10' : 'w-20 h-20'} text-[#2F334F] animate-spin`} /> : <Sparkles className={`${visualData ? 'w-10 h-10' : 'w-20 h-20'} text-[#2F334F]`} />}
+                   {isListening ? <Mic className="w-12 h-12 text-[#2F334F]" /> : isProcessing ? <Loader2 className="w-12 h-12 text-[#2F334F] animate-spin" /> : <Sparkles className="w-12 h-12 text-[#2F334F]" />}
                  </motion.div>
               </motion.div>
 
               <div className="w-full max-w-3xl flex flex-col items-center space-y-4 px-4 text-center">
-                 
                  <div className="min-h-10">
-                   <p className="text-2xl text-[#D4AF37] font-medium leading-tight">
-                     {transcript ? `"${transcript}"` : ""}
-                   </p>
+                   <p className="text-2xl text-[#D4AF37] font-medium leading-tight">{transcript}</p>
                  </div>
-
                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full">
                    {isProcessing ? (
                      <p className="text-lg text-white/50 animate-pulse">Consulting the loom...</p>
                    ) : (
                      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 max-h-60 overflow-y-auto custom-scrollbar shadow-inner text-left mx-auto max-w-2xl">
-                       <p className="text-lg text-[#E5DCCA] italic leading-relaxed font-serif whitespace-pre-line">
-                         {reply}
-                       </p>
+                       <p className="text-lg text-[#E5DCCA] italic leading-relaxed font-serif whitespace-pre-line">{reply}</p>
                      </div>
                    )}
                  </motion.div>
@@ -284,22 +300,15 @@ export default function CraftMitra() {
 
             <div className="pb-12 pt-4 flex items-center gap-6 relative z-200">
                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="h-14 w-45 rounded-full bg-[#1A1D2E] border border-[#D4AF37]/50 text-[#D4AF37] text-lg font-medium shadow-lg hover:border-[#D4AF37] transition-colors focus:ring-0 focus:ring-offset-0">
-                     <Globe className="w-5 h-5 mr-2" />
-                     <SelectValue placeholder="Language" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-14 w-45 rounded-full bg-[#1A1D2E] border border-[#D4AF37]/50 text-[#D4AF37] text-lg font-medium"><Globe className="w-5 h-5 mr-2" /><SelectValue placeholder="Language" /></SelectTrigger>
                   <SelectContent className="bg-[#2F334F] border-[#D4AF37] text-white z-200">
                      <SelectItem value="auto">Auto Detect</SelectItem>
-                     <SelectItem value="hi-IN">Hindi (हिंदी)</SelectItem>
-                     <SelectItem value="bn-IN">Bengali (বাংলা)</SelectItem>
-                     <SelectItem value="ta-IN">Tamil (தமிழ்)</SelectItem>
-                     <SelectItem value="te-IN">Telugu (తెలుగు)</SelectItem>
-                     <SelectItem value="or-IN">Odia (ଓଡ଼ିଆ)</SelectItem>
+                     <SelectItem value="hi-IN">Hindi</SelectItem>
+                     <SelectItem value="bn-IN">Bengali</SelectItem>
                      <SelectItem value="en-IN">English</SelectItem>
                   </SelectContent>
                </Select>
-
-               <Button onClick={toggleListening} className={`h-20 w-20 rounded-full shadow-2xl transition-all border-4 ${isListening ? 'bg-red-500 hover:bg-red-600 border-red-300 scale-110' : 'bg-[#D4AF37] hover:bg-[#B8860B] border-[#F3E5AB]'}`}>
+               <Button onClick={toggleListening} className={`h-20 w-20 rounded-full shadow-2xl transition-all border-4 ${isListening ? 'bg-red-500 scale-110' : 'bg-[#D4AF37]'}`}>
                  {isListening ? <div className="w-8 h-8 bg-white rounded-md animate-pulse" /> : <Mic className="w-10 h-10 text-[#2F334F]" />}
                </Button>
             </div>

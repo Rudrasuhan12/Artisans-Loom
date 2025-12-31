@@ -16,12 +16,23 @@ export default function AuctionModal({ productId }: { productId: string }) {
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     formData.append("productId", productId);
+    
     try {
       await startAuctionAction(formData);
-      toast.success("Product listed for Auction!");
+      toast.success("Product listed for Auction successfully!");
       setOpen(false);
-    } catch (e) {
-      toast.error("Failed to start auction");
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to start auction";
+      
+      if (errorMessage.includes("already live")) {
+        toast.warning("This item is already in the auction house.");
+      } else if (errorMessage.includes("already been sold")) {
+        toast.info("This item is already sold. You cannot auction it again.");
+      } else if (errorMessage.includes("previously auctioned")) {
+        toast.error("One-Time Only: This item was already auctioned.");
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

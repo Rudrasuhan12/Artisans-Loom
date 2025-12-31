@@ -1,53 +1,68 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function getMitraOracleInsights(language: string = "English") {
-  try {
-    // 1. Get Internal Data: Top 5 Selling Categories in the last 30 days
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+export async function getMitraOracleInsights() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
 
-    const topCategories = await prisma.orderItem.groupBy({
-      by: ['productId'],
-      where: {
-        order: { createdAt: { gte: oneMonthAgo } }
-      },
-      _sum: { quantity: true },
-    });
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    include: {
+      products: { select: { title: true, category: true, views: true, salesCount: true } },
+      orders: true
+    }
+  });
 
-    // 2. Synthesize internal context for AI
-    const dataContext = `Recent sales show high interest in handcrafted items. The community is actively searching for unique heritage pieces.`;
+  if (!user) throw new Error("User not found");
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  const productSummary = user.products.slice(0, 5).map(p => `${p.title} (${p.category})`).join(", ");
+  const totalSales = user.products.reduce((acc, p) => acc + p.salesCount, 0);
 
-    const prompt = `
-      You are 'Craft Mitra', a world-class market trend forecaster for an Indian handicraft marketplace.
-      Based on this internal platform context: "${dataContext}", provide 3 unique, predictive, and actionable insights for artisans.
-      
-      The entire response must be in ${language}.
-      
-      Return ONLY a JSON object with this key:
-      "insights": [
-        "Insight 1 (Trend Forecast): Identify a rising trend (e.g., Sustainable home decor).",
-        "Insight 2 (Design Prompt): Suggest a specific new product idea (e.g., Terracotta desk organizers).",
-        "Insight 3 (Marketing Tip): Provide a tip (e.g., Use 'behind-the-scenes' videos for better engagement)."
-      ]
-    `;
+  const prompt = `
+    You are 'Craft Mitra', a royal strategic advisor to an Indian Artisan.
+    The artisan makes: ${productSummary || "Various Crafts"}.
+    Total Sales: ${totalSales}.
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    Generate 3 distinct insights in a strict JSON format.
     
-    const startIndex = text.indexOf('{');
-    const endIndex = text.lastIndexOf('}');
-    return JSON.parse(text.substring(startIndex, endIndex + 1));
+    1. **Trend Forecast**: A short, punchy prediction about their craft niche.
+    2. **Design Prompt**: A specific, inspiring idea for a new product.
+    3. **Marketing Tip**: A high-impact strategy to sell more.
 
+    **Rules:**
+    - Do NOT use labels like "Insight 1" or "Trend Forecast" in the text.
+    - Keep the "Headline" short (max 6 words).
+    - Keep the "Body" inspiring and actionable (max 30 words).
+    
+    **Output JSON Structure:**
+    {
+      "insights": [
+        { "type": "TREND", "headline": "...", "body": "..." },
+        { "type": "DESIGN", "headline": "...", "body": "..." },
+        { "type": "GROWTH", "headline": "...", "body": "..." }
+      ]
+    }
+  `;
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(text);
   } catch (error) {
     console.error("Oracle Error:", error);
-    throw new Error("The Oracle is currently silent. Please try again later.");
+    return {
+      insights: [
+        { type: "TREND", headline: "Heirloom Revivals", body: "Customers are seeking modern utility with ancient aesthetics. Think laptop sleeves with Madhubani art." },
+        { type: "DESIGN", headline: "Fusion Materials", body: "Try combining brass with sustainable bamboo for a contemporary, eco-friendly luxury look." },
+        { type: "GROWTH", headline: "Story Selling", body: "Record a 30-second video of your hands at work. Process videos increase trust by 40%." }
+      ]
+    };
   }
 }

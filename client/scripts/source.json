@@ -1,20 +1,57 @@
 {
-  "dashboard": "Dashboard",
-  "products": "Products",
-  "analytics": "Analytics",
-  "settings": "Settings",
-  "yourProfile": "Your Profile",
-  "artisanAccount": "Artisan Account",
-  "discover": "Discover",
-  "regions": "Regions",
-  "artisans": "Artisans",
-  "stories": "Stories",
-  "auction": "Auction",
-  "signIn": "Sign In",
-  "signUp": "Sign Up",
-  "goToDashboard": "Go to Dashboard",
-  "heroTitle1": "The Artisan's",
-  "heroTitle2": "Loom",
-  "heroSubtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
-  "searchPlaceholder": "Search for crafts, artisans..."
+  "nav": {
+    "home": "Home",
+    "shop": "Shop",
+    "atlas": "Craft Atlas",
+    "artisans": "Artisans",
+    "stories": "Stories",
+    "auction": "Auctions",
+    "dashboard": "Dashboard",
+    "login": "Sign In",
+    "signup": "Sign Up"
+  },
+  "hero": {
+    "title1": "The Artisan's",
+    "title2": "Loom",
+    "subtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
+    "search": "Search for crafts, artisans..."
+  },
+  "shop": {
+    "filter": "Filters",
+    "sort": "Sort By",
+    "category": "Category",
+    "region": "Region",
+    "price": "Price",
+    "apply": "Apply Filters",
+    "reset": "Reset",
+    "viewDetails": "View Details",
+    "buyNow": "Buy Now",
+    "addToCart": "Add to Cart"
+  },
+  "auction": {
+    "title": "Heritage Auctions",
+    "vault": "The Royal Vault",
+    "live": "Live Highest Bid",
+    "minBid": "Next Minimum",
+    "placeBid": "Place Bid",
+    "ended": "Auction Closed",
+    "winner": "Winning Bid",
+    "history": "Bid History"
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "revenue": "Total Revenue",
+    "sales": "Total Sales",
+    "stock": "Active Products",
+    "orders": "Recent Orders",
+    "create": "Craft New Item"
+  },
+  "profile": {
+    "follow": "Follow",
+    "following": "Following",
+    "creations": "Creations",
+    "patrons": "Patrons",
+    "reviews": "Reviews",
+    "story": "The Story"
+  }
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Edit, Trash2, Sparkles, Video, Gavel } from "lucide-react";
+import { Edit, Trash2, Sparkles, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteProductAction } from "@/app/actions/products";
 import PremiumAlert from "@/components/ui/premium-alert";
@@ -14,6 +14,7 @@ import { generateReelScript } from "@/app/actions/marketing";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import AutoTranslate from "@/components/ui/auto-translate";
 
 interface ProductProps {
   id: string;
@@ -125,7 +126,7 @@ export default function ProductCard({
 
           <div className="absolute top-4 left-4">
              <span className="px-3 py-1 rounded-full bg-[#FFFBF5]/90 backdrop-blur border border-[#D4AF37]/30 text-[#4A3526] text-xs font-bold uppercase tracking-wider shadow-sm">
-               {category}
+               <AutoTranslate text={category} />
              </span>
           </div>
         </div>
@@ -133,7 +134,9 @@ export default function ProductCard({
         <div className="p-6 relative">
           <div className="absolute top-0 left-6 right-6 h-px bg-linear-to-r from-transparent via-[#D4AF37]/50 to-transparent"></div>
 
-          <h3 className="text-xl font-serif font-bold text-[#4A3526] mb-1 line-clamp-1">{title}</h3>
+          <h3 className="text-xl font-serif font-bold text-[#4A3526] mb-1 line-clamp-1">
+             <AutoTranslate text={title} />
+          </h3>
           
           <div className="flex justify-between items-end mt-4">
              <div>

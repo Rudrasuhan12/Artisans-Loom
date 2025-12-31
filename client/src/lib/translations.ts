@@ -6,245 +6,688 @@ import { Language } from "@/store/useLanguageStore";
 
 export const translations: Record<Language, any> = {
   "en": {
-    "dashboard": "Dashboard",
-    "products": "Products",
-    "analytics": "Analytics",
-    "settings": "Settings",
-    "community": "Community Forum",
-    "yourProfile": "Your Profile",
-    "artisanAccount": "Artisan Account",
-    "discover": "Discover",
-    "regions": "Regions",
-    "artisans": "Artisans",
-    "stories": "Stories",
-    "auction": "Auction",
-    "signIn": "Sign In",
-    "signUp": "Sign Up",
-    "goToDashboard": "Go to Dashboard",
-    "heroTitle1": "The Artisan's",
-    "heroTitle2": "Loom",
-    "heroSubtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
-    "searchPlaceholder": "Search for crafts, artisans..."
+    "nav": {
+      "home": "Home",
+      "shop": "Shop",
+      "atlas": "Craft Atlas",
+      "artisans": "Artisans",
+      "stories": "Stories",
+      "auction": "Auctions",
+      "dashboard": "Dashboard",
+      "login": "Sign In",
+      "signup": "Sign Up"
+    },
+    "hero": {
+      "title1": "The Artisan's",
+      "title2": "Loom",
+      "subtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
+      "search": "Search for crafts, artisans..."
+    },
+    "shop": {
+      "filter": "Filters",
+      "sort": "Sort By",
+      "category": "Category",
+      "region": "Region",
+      "price": "Price",
+      "apply": "Apply Filters",
+      "reset": "Reset",
+      "viewDetails": "View Details",
+      "buyNow": "Buy Now",
+      "addToCart": "Add to Cart"
+    },
+    "auction": {
+      "title": "Heritage Auctions",
+      "vault": "The Royal Vault",
+      "live": "Live Highest Bid",
+      "minBid": "Next Minimum",
+      "placeBid": "Place Bid",
+      "ended": "Auction Closed",
+      "winner": "Winning Bid",
+      "history": "Bid History"
+    },
+    "dashboard": {
+      "welcome": "Welcome back",
+      "revenue": "Total Revenue",
+      "sales": "Total Sales",
+      "stock": "Active Products",
+      "orders": "Recent Orders",
+      "create": "Craft New Item"
+    },
+    "profile": {
+      "follow": "Follow",
+      "following": "Following",
+      "creations": "Creations",
+      "patrons": "Patrons",
+      "reviews": "Reviews",
+      "story": "The Story"
+    }
   },
   "hi": {
-    "dashboard": "डैशबोर्ड",
-    "products": "उत्पाद",
-    "analytics": "एनालिटिक्स",
-    "settings": "सेटिंग्स",
-    "yourProfile": "आपकी प्रोफ़ाइल",
-    "artisanAccount": "कारीगर खाता",
-    "discover": "खोजें",
-    "regions": "क्षेत्र",
-    "artisans": "कारीगर",
-    "stories": "कहानियाँ",
-    "auction": "नीलामी",
-    "signIn": "साइन इन करें",
-    "signUp": "साइन अप करें",
-    "goToDashboard": "डैशबोर्ड पर जाएँ",
-    "heroTitle1": "कारीगर का",
-    "heroTitle2": "करघा",
-    "heroSubtitle": "भारतीय कारीगरों को एआई-पावर्ड टूल्स के साथ सशक्त बनाना और दुनिया को प्रामाणिक, हस्तनिर्मित खजानों से जोड़ना।",
-    "searchPlaceholder": "शिल्प, कारीगरों के लिए खोजें..."
+    "nav": {
+      "home": "होम",
+      "shop": "दुकान",
+      "atlas": "शिल्प एटलस",
+      "artisans": "कारीगर",
+      "stories": "कहानियाँ",
+      "auction": "नीलामियाँ",
+      "dashboard": "डैशबोर्ड",
+      "login": "साइन इन करें",
+      "signup": "साइन अप करें"
+    },
+    "hero": {
+      "title1": "कारीगर का",
+      "title2": "करघा",
+      "subtitle": "एआई-संचालित उपकरणों के साथ भारतीय कारीगरों को सशक्त बनाना, जबकि दुनिया को प्रामाणिक, हस्तनिर्मित खजानों से जोड़ना।",
+      "search": "शिल्प, कारीगरों की खोज करें..."
+    },
+    "shop": {
+      "filter": "फ़िल्टर",
+      "sort": "इसके अनुसार क्रमबद्ध करें",
+      "category": "श्रेणी",
+      "region": "क्षेत्र",
+      "price": "कीमत",
+      "apply": "फ़िल्टर लागू करें",
+      "reset": "रीसेट करें",
+      "viewDetails": "विवरण देखें",
+      "buyNow": "अभी खरीदें",
+      "addToCart": "कार्ट में जोड़ें"
+    },
+    "auction": {
+      "title": "विरासत नीलामियाँ",
+      "vault": "शाही तिजोरी",
+      "live": "लाइव उच्चतम बोली",
+      "minBid": "अगली न्यूनतम",
+      "placeBid": "बोली लगाएं",
+      "ended": "नीलामी समाप्त",
+      "winner": "विजेता बोली",
+      "history": "बोली इतिहास"
+    },
+    "dashboard": {
+      "welcome": "वापस स्वागत है",
+      "revenue": "कुल राजस्व",
+      "sales": "कुल बिक्री",
+      "stock": "सक्रिय उत्पाद",
+      "orders": "हाल के आदेश",
+      "create": "नई वस्तु बनाएं"
+    },
+    "profile": {
+      "follow": "अनुसरण करें",
+      "following": "अनुसरण कर रहे हैं",
+      "creations": "कृतियाँ",
+      "patrons": "संरक्षक",
+      "reviews": "समीक्षाएँ",
+      "story": "कहानी"
+    }
   },
   "bn": {
-    "dashboard": "ড্যাশবোর্ড",
-    "products": "পণ্যসমূহ",
-    "analytics": "বিশ্লেষণ",
-    "settings": "সেটিংস",
-    "yourProfile": "আপনার প্রোফাইল",
-    "artisanAccount": "কারিগর অ্যাকাউন্ট",
-    "discover": "আবিষ্কার করুন",
-    "regions": "অঞ্চলসমূহ",
-    "artisans": "কারিগরগণ",
-    "stories": "গল্পসমূহ",
-    "auction": "নিলাম",
-    "signIn": "সাইন ইন করুন",
-    "signUp": "সাইন আপ করুন",
-    "goToDashboard": "ড্যাশবোর্ডে যান",
-    "heroTitle1": "কারিগরদের",
-    "heroTitle2": "তাঁত",
-    "heroSubtitle": "কৃত্রিম বুদ্ধিমত্তা-চালিত সরঞ্জাম দিয়ে ভারতীয় কারিগরদের ক্ষমতায়ন করা এবং বিশ্বকে খাঁটি, হস্তনির্মিত রত্নের সাথে সংযুক্ত করা।",
-    "searchPlaceholder": "শিল্পকর্ম, কারিগর খুঁজুন..."
+    "nav": {
+      "home": "হোম",
+      "shop": "শপ",
+      "atlas": "কারুশিল্প অ্যাটলাস",
+      "artisans": "কারিগর",
+      "stories": "গল্প",
+      "auction": "নিলাম",
+      "dashboard": "ড্যাশবোর্ড",
+      "login": "সাইন ইন",
+      "signup": "সাইন আপ"
+    },
+    "hero": {
+      "title1": "কারিগরদের",
+      "title2": "তাঁত",
+      "subtitle": "এআই-চালিত সরঞ্জাম দিয়ে ভারতীয় কারিগরদের ক্ষমতায়ন করা এবং বিশ্বকে খাঁটি, হাতে তৈরি রত্নগুলির সাথে সংযুক্ত করা।",
+      "search": "কারুশিল্প, কারিগর খুঁজুন..."
+    },
+    "shop": {
+      "filter": "ফিল্টার",
+      "sort": "অনুযায়ী সাজান",
+      "category": "বিভাগ",
+      "region": "অঞ্চল",
+      "price": "মূল্য",
+      "apply": "ফিল্টার প্রয়োগ করুন",
+      "reset": "রিসেট",
+      "viewDetails": "বিস্তারিত দেখুন",
+      "buyNow": "এখনই কিনুন",
+      "addToCart": "কার্টে যোগ করুন"
+    },
+    "auction": {
+      "title": "ঐতিহ্যবাহী নিলাম",
+      "vault": "রাজকীয় ভল্ট",
+      "live": "সর্বোচ্চ লাইভ বিড",
+      "minBid": "পরবর্তী সর্বনিম্ন",
+      "placeBid": "বিড করুন",
+      "ended": "নিলাম বন্ধ",
+      "winner": "বিজয়ী বিড",
+      "history": "বিডের ইতিহাস"
+    },
+    "dashboard": {
+      "welcome": "স্বাগতম",
+      "revenue": "মোট রাজস্ব",
+      "sales": "মোট বিক্রয়",
+      "stock": "সক্রিয় পণ্য",
+      "orders": "সাম্প্রতিক অর্ডার",
+      "create": "নতুন আইটেম তৈরি করুন"
+    },
+    "profile": {
+      "follow": "অনুসরণ করুন",
+      "following": "অনুসরণ করছেন",
+      "creations": "সৃষ্টি",
+      "patrons": "পৃষ্ঠপোষক",
+      "reviews": "পর্যালোচনা",
+      "story": "গল্পটি"
+    }
   },
   "te": {
-    "dashboard": "డాష్‌బోర్డ్",
-    "products": "ఉత్పత్తులు",
-    "analytics": "విశ్లేషణలు",
-    "settings": "సెట్టింగ్‌లు",
-    "yourProfile": "మీ ప్రొఫైల్",
-    "artisanAccount": "కళాకారుల ఖాతా",
-    "discover": "కనుగొనండి",
-    "regions": "ప్రాంతాలు",
-    "artisans": "కళాకారులు",
-    "stories": "కథనాలు",
-    "auction": "వేలం",
-    "signIn": "సైన్ ఇన్ చేయండి",
-    "signUp": "సైన్ అప్ చేయండి",
-    "goToDashboard": "డాష్‌బోర్డ్‌కు వెళ్ళండి",
-    "heroTitle1": "కళాకారుల",
-    "heroTitle2": "మగ్గం",
-    "heroSubtitle": "AI-శక్తితో కూడిన సాధనాలతో భారతీయ కళాకారులకు సాధికారత కల్పిస్తూ, ప్రపంచాన్ని ప్రామాణికమైన, చేతితో చేసిన సంపదలకు అనుసంధానిస్తుంది.",
-    "searchPlaceholder": "చేతిపనులు, కళాకారుల కోసం వెతకండి..."
+    "nav": {
+      "home": "హోమ్",
+      "shop": "దుకాణం",
+      "atlas": "హస్తకళల అట్లాస్",
+      "artisans": "కళాకారులు",
+      "stories": "కథలు",
+      "auction": "వేలం",
+      "dashboard": "డాష్‌బోర్డ్",
+      "login": "సైన్ ఇన్ చేయండి",
+      "signup": "నమోదు చేసుకోండి"
+    },
+    "hero": {
+      "title1": "కళాకారుని",
+      "title2": "మగ్గం",
+      "subtitle": "AI-శక్తితో కూడిన సాధనాలతో భారతీయ కళాకారులకు సాధికారత కల్పిస్తూ, ప్రపంచాన్ని ప్రామాణికమైన, చేతితో చేసిన సంపదలకు అనుసంధానించడం.",
+      "search": "హస్తకళలు, కళాకారుల కోసం వెతకండి..."
+    },
+    "shop": {
+      "filter": "ఫిల్టర్లు",
+      "sort": "దీని ద్వారా క్రమబద్ధీకరించండి",
+      "category": "వర్గం",
+      "region": "ప్రాంతం",
+      "price": "ధర",
+      "apply": "ఫిల్టర్‌లను వర్తింపజేయండి",
+      "reset": "రీసెట్ చేయండి",
+      "viewDetails": "వివరాలను వీక్షించండి",
+      "buyNow": "ఇప్పుడే కొనండి",
+      "addToCart": "కార్ట్‌కు జోడించండి"
+    },
+    "auction": {
+      "title": "పారంపరిక వేలం",
+      "vault": "రాజ ఖజానా",
+      "live": "ప్రత్యక్ష అత్యధిక బిడ్",
+      "minBid": "తదుపరి కనీస",
+      "placeBid": "బిడ్ చేయండి",
+      "ended": "వేలం ముగిసింది",
+      "winner": "గెలిచిన బిడ్",
+      "history": "బిడ్ చరిత్ర"
+    },
+    "dashboard": {
+      "welcome": "తిరిగి స్వాగతం",
+      "revenue": "మొత్తం ఆదాయం",
+      "sales": "మొత్తం అమ్మకాలు",
+      "stock": "కార్యాచరణలో ఉన్న ఉత్పత్తులు",
+      "orders": "ఇటీవలి ఆర్డర్‌లు",
+      "create": "కొత్త వస్తువును సృష్టించండి"
+    },
+    "profile": {
+      "follow": "అనుసరించండి",
+      "following": "అనుసరిస్తున్నారు",
+      "creations": "సృష్టించినవి",
+      "patrons": "ఆదరణ కర్తలు",
+      "reviews": "సమీక్షలు",
+      "story": "కథ"
+    }
   },
   "mr": {
-    "dashboard": "डॅशबोर्ड",
-    "products": "उत्पादने",
-    "analytics": "विश्लेषण",
-    "settings": "सेटिंग्ज",
-    "yourProfile": "तुमचे प्रोफाइल",
-    "artisanAccount": "कारागीर खाते",
-    "discover": "शोधा",
-    "regions": "प्रदेश",
-    "artisans": "कारागीर",
-    "stories": "कथा",
-    "auction": "लिलाव",
-    "signIn": "लॉग इन करा",
-    "signUp": "नोंदणी करा",
-    "goToDashboard": "डॅशबोर्डवर जा",
-    "heroTitle1": "कारागिराचे",
-    "heroTitle2": "माग",
-    "heroSubtitle": "एआय-शक्तीवर आधारित साधनांद्वारे भारतीय कारागिरांना सक्षम करणे आणि जगाला अस्सल, हस्तनिर्मित खजिन्यांशी जोडणे.",
-    "searchPlaceholder": "कलाकुसरीच्या वस्तू, कारागीर शोधा..."
+    "nav": {
+      "home": "मुख्यपृष्ठ",
+      "shop": "दुकान",
+      "atlas": "हस्तकला नकाशा",
+      "artisans": "कारागीर",
+      "stories": "कथा",
+      "auction": "लिलाव",
+      "dashboard": "डॅशबोर्ड",
+      "login": "प्रवेश करा",
+      "signup": "नोंदणी करा"
+    },
+    "hero": {
+      "title1": "कारागिरांचे",
+      "title2": "माग",
+      "subtitle": "एआय-शक्तीवर चालणाऱ्या साधनांनी भारतीय कारागिरांना सक्षम करणे आणि जगाला अस्सल, हस्तनिर्मित खजिन्यांशी जोडणे.",
+      "search": "कलाकृती, कारागीर शोधा..."
+    },
+    "shop": {
+      "filter": "फिल्टर्स",
+      "sort": "यानुसार क्रमवारी लावा",
+      "category": "श्रेणी",
+      "region": "प्रदेश",
+      "price": "किंमत",
+      "apply": "फिल्टर्स लागू करा",
+      "reset": "रीसेट करा",
+      "viewDetails": "तपशील पहा",
+      "buyNow": "आत्ताच खरेदी करा",
+      "addToCart": "कार्टमध्ये जोडा"
+    },
+    "auction": {
+      "title": "वारसा लिलाव",
+      "vault": "शाही तिजोरी",
+      "live": "थेट सर्वोच्च बोली",
+      "minBid": "पुढील किमान बोली",
+      "placeBid": "बोली लावा",
+      "ended": "लिलाव संपला",
+      "winner": "विजयी बोली",
+      "history": "बोलीचा इतिहास"
+    },
+    "dashboard": {
+      "welcome": "परत स्वागत आहे",
+      "revenue": "एकूण महसूल",
+      "sales": "एकूण विक्री",
+      "stock": "सक्रिय उत्पादने",
+      "orders": "नवीन ऑर्डर",
+      "create": "नवीन वस्तू तयार करा"
+    },
+    "profile": {
+      "follow": "अनुसरण करा",
+      "following": "अनुसरण करत आहात",
+      "creations": "निर्मिती",
+      "patrons": "आश्रयदाते",
+      "reviews": "पुनरावलोकने",
+      "story": "कथा"
+    }
   },
   "ta": {
-    "dashboard": "கட்டுப்பாட்டுப் பலகை",
-    "products": "பொருட்கள்",
-    "analytics": "பகுப்பாய்வு",
-    "settings": "அமைப்புகள்",
-    "yourProfile": "உங்கள் சுயவிவரம்",
-    "artisanAccount": "கைவினைஞர் கணக்கு",
-    "discover": "கண்டறிக",
-    "regions": "பிராந்தியங்கள்",
-    "artisans": "கைவினைஞர்கள்",
-    "stories": "கதைகள்",
-    "auction": "ஏலம்",
-    "signIn": "உள்நுழை",
-    "signUp": "பதிவுசெய்",
-    "goToDashboard": "கட்டுப்பாட்டுப் பலகைக்குச் செல்",
-    "heroTitle1": "கைவினைஞரின்",
-    "heroTitle2": "தறி",
-    "heroSubtitle": "இந்தியக் கைவினைஞர்களுக்கு AI-ஆற்றல் கொண்ட கருவிகளைக் கொண்டு அதிகாரமளிப்பதன் மூலம், உலகின் உண்மையான, கையால் செய்யப்பட்ட பொக்கிஷங்களை இணைக்கிறது.",
-    "searchPlaceholder": "கைவினைகள், கைவினைஞர்கள் தேடுக..."
+    "nav": {
+      "home": "முகப்பு",
+      "shop": "கடை",
+      "atlas": "கைவினை வரைபடம்",
+      "artisans": "கைவினைஞர்கள்",
+      "stories": "கதைகள்",
+      "auction": "ஏலங்கள்",
+      "dashboard": "கட்டுப்பாட்டுப் பலகை",
+      "login": "உள்நுழை",
+      "signup": "பதிவுசெய்"
+    },
+    "hero": {
+      "title1": "கைவினைஞரின்",
+      "title2": "தறி",
+      "subtitle": "இந்தியக் கைவினைஞர்களுக்கு AI-இயக்கப்படும் கருவிகள் மூலம் அதிகாரம் அளிப்பதுடன், உலகை உண்மையான, கையால் செய்யப்பட்ட பொக்கிஷங்களுடன் இணைக்கிறது.",
+      "search": "கைவினைப் பொருட்கள், கைவினைஞர்கள்..."
+    },
+    "shop": {
+      "filter": "வடிகட்டிகள்",
+      "sort": "வரிசைப்படுத்து",
+      "category": "வகை",
+      "region": "பிராந்தியம்",
+      "price": "விலை",
+      "apply": "வடிகட்டிகளைப் பயன்படுத்து",
+      "reset": "மீட்டமை",
+      "viewDetails": "விவரங்களைக் காண்க",
+      "buyNow": "இப்பொழுதே வாங்கவும்",
+      "addToCart": "வண்டியில் சேர்"
+    },
+    "auction": {
+      "title": "பாரம்பரிய ஏலங்கள்",
+      "vault": "அரச களஞ்சியம்",
+      "live": "நேரடி உயர்ந்த ஏலம்",
+      "minBid": "அடுத்த குறைந்தபட்சம்",
+      "placeBid": "ஏலம் விடு",
+      "ended": "ஏலம் முடிந்தது",
+      "winner": "வென்ற ஏலம்",
+      "history": "ஏல வரலாறு"
+    },
+    "dashboard": {
+      "welcome": "மீண்டும் வருக",
+      "revenue": "மொத்த வருவாய்",
+      "sales": "மொத்த விற்பனை",
+      "stock": "செயலில் உள்ள தயாரிப்புகள்",
+      "orders": "சமீபத்திய ஆர்டர்கள்",
+      "create": "புதிய பொருளை உருவாக்கு"
+    },
+    "profile": {
+      "follow": "பின்பற்று",
+      "following": "பின்தொடர்கிறது",
+      "creations": "படைப்புகள்",
+      "patrons": "ஆதரவாளர்கள்",
+      "reviews": "மதிப்பாய்வுகள்",
+      "story": "கதை"
+    }
   },
   "gu": {
-    "dashboard": "ડેશબોર્ડ",
-    "products": "ઉત્પાદનો",
-    "analytics": "એનાલિટિક્સ",
-    "settings": "સેટિંગ્સ",
-    "yourProfile": "તમારી પ્રોફાઇલ",
-    "artisanAccount": "કારીગર ખાતું",
-    "discover": "શોધો",
-    "regions": "પ્રદેશો",
-    "artisans": "કારીગરો",
-    "stories": "વાર્તાઓ",
-    "auction": "હરાજી",
-    "signIn": "સાઇન ઇન કરો",
-    "signUp": "સાઇન અપ કરો",
-    "goToDashboard": "ડેશબોર્ડ પર જાઓ",
-    "heroTitle1": "કારીગરનું",
-    "heroTitle2": "લૂમ",
-    "heroSubtitle": "ભારતીય કારીગરોને AI-સંચાલિત સાધનોથી સશક્ત બનાવવું અને વિશ્વને અધિકૃત, હાથથી બનાવેલા ખજાના સાથે જોડવું.",
-    "searchPlaceholder": "હસ્તકલા, કારીગરો શોધો..."
+    "nav": {
+      "home": "ઘર",
+      "shop": "દુકાન",
+      "atlas": "હસ્તકલા એટલાસ",
+      "artisans": "કારીગરો",
+      "stories": "વાર્તાઓ",
+      "auction": "હરાજી",
+      "dashboard": "ડેશબોર્ડ",
+      "login": "લૉગ ઇન કરો",
+      "signup": "નોંધણી કરો"
+    },
+    "hero": {
+      "title1": "કારીગરનો",
+      "title2": "તાંતણો",
+      "subtitle": "AI-સંચાલિત સાધનો વડે ભારતીય કારીગરોને સશક્ત કરવા અને વિશ્વને અધિકૃત, હાથથી બનાવેલા ખજાના સાથે જોડવા.",
+      "search": "હસ્તકલા, કારીગરો શોધો..."
+    },
+    "shop": {
+      "filter": "ફિલ્ટર્સ",
+      "sort": "આના દ્વારા સૉર્ટ કરો",
+      "category": "શ્રેણી",
+      "region": "પ્રદેશ",
+      "price": "કિંમત",
+      "apply": "ફિલ્ટર્સ લાગુ કરો",
+      "reset": "રીસેટ કરો",
+      "viewDetails": "વિગતો જુઓ",
+      "buyNow": "હમણાં ખરીદો",
+      "addToCart": "કાર્ટમાં ઉમેરો"
+    },
+    "auction": {
+      "title": "વારસાગત હરાજી",
+      "vault": "શાહી તિજોરી",
+      "live": "લાઇવ સૌથી ઊંચી બોલી",
+      "minBid": "આગળની લઘુત્તમ",
+      "placeBid": "બોલી લગાવો",
+      "ended": "હરાજી બંધ થઈ",
+      "winner": "વિજેતા બોલી",
+      "history": "બોલીનો ઇતિહાસ"
+    },
+    "dashboard": {
+      "welcome": "ફરી સ્વાગત છે",
+      "revenue": "કુલ આવક",
+      "sales": "કુલ વેચાણ",
+      "stock": "સક્રિય ઉત્પાદનો",
+      "orders": "તાજેતરના ઓર્ડર",
+      "create": "નવી વસ્તુ બનાવો"
+    },
+    "profile": {
+      "follow": "અનુસરો",
+      "following": "અનુસરી રહ્યા છો",
+      "creations": "સર્જનો",
+      "patrons": "આશ્રયદાતાઓ",
+      "reviews": "સમીક્ષાઓ",
+      "story": "વાર્તા"
+    }
   },
   "kn": {
-    "dashboard": "Dashboard",
-    "products": "Products",
-    "analytics": "Analytics",
-    "settings": "Settings",
-    "yourProfile": "Your Profile",
-    "artisanAccount": "Artisan Account",
-    "discover": "Discover",
-    "regions": "Regions",
-    "artisans": "Artisans",
-    "stories": "Stories",
-    "auction": "Auction",
-    "signIn": "Sign In",
-    "signUp": "Sign Up",
-    "goToDashboard": "Go to Dashboard",
-    "heroTitle1": "The Artisan's",
-    "heroTitle2": "Loom",
-    "heroSubtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
-    "searchPlaceholder": "Search for crafts, artisans..."
+    "nav": {
+      "home": "ಮುಖಪುಟ",
+      "shop": "ಅಂಗಡಿ",
+      "atlas": "ಕಲೆಗಳ ಅಟ್ಲಾಸ್",
+      "artisans": "ಕಲೆಗಾರರು",
+      "stories": "ಕಥೆಗಳು",
+      "auction": "ಹರಾಜುಗಳು",
+      "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+      "login": "ಸೈನ್ ಇನ್",
+      "signup": "ಸೈನ್ ಅಪ್"
+    },
+    "hero": {
+      "title1": "ಕಲೆಗಾರನ",
+      "title2": "ಮಗ್ಗ",
+      "subtitle": "AI-ಚಾಲಿತ ಪರಿಕರಗಳ ಮೂಲಕ ಭಾರತೀಯ ಕಲೆಗಾರರಿಗೆ ಸಬಲೀಕರಣ ನೀಡುವುದು ಮತ್ತು ಜಗತ್ತನ್ನು ಅಧಿಕೃತ, ಕೈಯಿಂದ ಮಾಡಿದ ಸಂಪತ್ತುಗಳಿಗೆ ಸಂಪರ್ಕಿಸುವುದು.",
+      "search": "ಕಲೆಗಳು, ಕಲೆಗಾರರಿಗಾಗಿ ಹುಡುಕಿ..."
+    },
+    "shop": {
+      "filter": "ಫಿಲ್ಟರ್‌ಗಳು",
+      "sort": "ಇದರಿಂದ ವಿಂಗಡಿಸಿ",
+      "category": "ವರ್ಗ",
+      "region": "ಪ್ರದೇಶ",
+      "price": "ಬೆಲೆ",
+      "apply": "ಫಿಲ್ಟರ್‌ಗಳನ್ನು ಅನ್ವಯಿಸಿ",
+      "reset": "ಮರುಹೊಂದಿಸಿ",
+      "viewDetails": "ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ",
+      "buyNow": "ಈಗ ಖರೀದಿಸಿ",
+      "addToCart": "ಕಾರ್ಟ್‌ಗೆ ಸೇರಿಸಿ"
+    },
+    "auction": {
+      "title": "ಪರಂಪರೆಯ ಹರಾಜುಗಳು",
+      "vault": "ರಾಜಮನೆತನದ ಭಂಡಾರ",
+      "live": "ನೇರ ಅತ್ಯಧಿಕ ಬಿಡ್",
+      "minBid": "ಮುಂದಿನ ಕನಿಷ್ಠ",
+      "placeBid": "ಬಿಡ್ ಮಾಡಿ",
+      "ended": "ಹರಾಜು ಮುಕ್ತಾಯಗೊಂಡಿದೆ",
+      "winner": "ಗೆದ್ದ ಬಿಡ್",
+      "history": "ಬಿಡ್ ಇತಿಹಾಸ"
+    },
+    "dashboard": {
+      "welcome": "ಮರಳಿ ಸ್ವಾಗತ",
+      "revenue": "ಒಟ್ಟು ಆದಾಯ",
+      "sales": "ಒಟ್ಟು ಮಾರಾಟ",
+      "stock": "ಸಕ್ರಿಯ ಉತ್ಪನ್ನಗಳು",
+      "orders": "ಇತ್ತೀಚಿನ ಆದೇಶಗಳು",
+      "create": "ಹೊಸ ವಸ್ತುವನ್ನು ರಚಿಸಿ"
+    },
+    "profile": {
+      "follow": "ಅನುಸರಿಸಿ",
+      "following": "ಅನುಸರಿಸಲಾಗುತ್ತಿದೆ",
+      "creations": "ರಚನೆಗಳು",
+      "patrons": "ಪೋಷಕರು",
+      "reviews": "ವಿಮರ್ಶೆಗಳು",
+      "story": "ಕಥೆ"
+    }
   },
   "ml": {
-    "dashboard": "Dashboard",
-    "products": "Products",
-    "analytics": "Analytics",
-    "settings": "Settings",
-    "yourProfile": "Your Profile",
-    "artisanAccount": "Artisan Account",
-    "discover": "Discover",
-    "regions": "Regions",
-    "artisans": "Artisans",
-    "stories": "Stories",
-    "auction": "Auction",
-    "signIn": "Sign In",
-    "signUp": "Sign Up",
-    "goToDashboard": "Go to Dashboard",
-    "heroTitle1": "The Artisan's",
-    "heroTitle2": "Loom",
-    "heroSubtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
-    "searchPlaceholder": "Search for crafts, artisans..."
+    "nav": {
+      "home": "ഹോം",
+      "shop": "ഷോപ്പ്",
+      "atlas": "കരകൗശല അറ്റ്ലസ്",
+      "artisans": "കരകൗശലവിദഗ്ദ്ധർ",
+      "stories": "കഥകൾ",
+      "auction": "ലേലങ്ങൾ",
+      "dashboard": "ഡാഷ്‌ബോർഡ്",
+      "login": "പ്രവേശിക്കുക",
+      "signup": "സൈൻ അപ്പ് ചെയ്യുക"
+    },
+    "hero": {
+      "title1": "കലാകാരന്റെ",
+      "title2": "നെയ്ത്ത്",
+      "subtitle": "AI-ശക്തിയുള്ള ഉപകരണങ്ങൾ ഉപയോഗിച്ച് ഇന്ത്യൻ കരകൗശലവിദഗ്ദ്ധരെ ശാക്തീകരിക്കുകയും യഥാർത്ഥ, കൈകൊണ്ട് നിർമ്മിച്ച നിധികൾ ലോകവുമായി ബന്ധിപ്പിക്കുകയും ചെയ്യുന്നു.",
+      "search": "കരകൗശലവസ്തുക്കൾ, കരകൗശലവിദഗ്ദ്ധർ എന്നിവയ്ക്കായി തിരയുക..."
+    },
+    "shop": {
+      "filter": "ഫിൽട്ടറുകൾ",
+      "sort": "ഇതിനനുസരിച്ച് അടുക്കുക",
+      "category": "വിഭാഗം",
+      "region": "പ്രദേശം",
+      "price": "വില",
+      "apply": "ഫിൽട്ടറുകൾ പ്രയോഗിക്കുക",
+      "reset": "പുനഃസജ്ജമാക്കുക",
+      "viewDetails": "വിശദാംശങ്ങൾ കാണുക",
+      "buyNow": "ഇപ്പോൾ വാങ്ങുക",
+      "addToCart": "കാർട്ടിൽ ചേർക്കുക"
+    },
+    "auction": {
+      "title": "പൈതൃക ലേലങ്ങൾ",
+      "vault": "റോയൽ വാൾട്ട്",
+      "live": "തത്സമയത്തെ ഏറ്റവും ഉയർന്ന ലേലം",
+      "minBid": "അടുത്ത ഏറ്റവും കുറഞ്ഞ ലേലം",
+      "placeBid": "ലേലം വെക്കുക",
+      "ended": "ലേലം അവസാനിച്ചു",
+      "winner": "വിജയിച്ച ലേലം",
+      "history": "ലേല ചരിത്രം"
+    },
+    "dashboard": {
+      "welcome": "തിരികെ സ്വാഗതം",
+      "revenue": "മൊത്തം വരുമാനം",
+      "sales": "മൊത്തം വിൽപ്പന",
+      "stock": "സജീവ ഉൽപ്പന്നങ്ങൾ",
+      "orders": "പുതിയ ഓർഡറുകൾ",
+      "create": "പുതിയ ഇനം നിർമ്മിക്കുക"
+    },
+    "profile": {
+      "follow": "പിന്തുടരുക",
+      "following": "പിന്തുടരുന്നു",
+      "creations": "സൃഷ്ടികൾ",
+      "patrons": "പ്രോത്സാഹകർ",
+      "reviews": "അവലോകനങ്ങൾ",
+      "story": "കഥ"
+    }
   },
   "or": {
-    "dashboard": "Dashboard",
-    "products": "Products",
-    "analytics": "Analytics",
-    "settings": "Settings",
-    "yourProfile": "Your Profile",
-    "artisanAccount": "Artisan Account",
-    "discover": "Discover",
-    "regions": "Regions",
-    "artisans": "Artisans",
-    "stories": "Stories",
-    "auction": "Auction",
-    "signIn": "Sign In",
-    "signUp": "Sign Up",
-    "goToDashboard": "Go to Dashboard",
-    "heroTitle1": "The Artisan's",
-    "heroTitle2": "Loom",
-    "heroSubtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
-    "searchPlaceholder": "Search for crafts, artisans..."
+    "nav": {
+      "home": "ଘର",
+      "shop": "ଦୋକାନ",
+      "atlas": "ହସ୍ତଶିଳ୍ପ ଆଟଲାସ୍",
+      "artisans": "କାରିଗରମାନେ",
+      "stories": "କାହାଣୀଗୁଡ଼ିକ",
+      "auction": "ନିଲାମ",
+      "dashboard": "ଡ୍ୟାସବୋର୍ଡ",
+      "login": "ସାଇନ୍ ଇନ୍",
+      "signup": "ସାଇନ୍ ଅପ୍"
+    },
+    "hero": {
+      "title1": "କାରିଗରଙ୍କ",
+      "title2": "ବୁଣାଯନ୍ତ୍ର",
+      "subtitle": "AI-ଶକ୍ତିପ୍ରାପ୍ତ ଉପକରଣ ସହିତ ଭାରତୀୟ କାରିଗରମାନଙ୍କୁ ସଶକ୍ତ କରିବା ସହିତ ବିଶ୍ୱକୁ ପ୍ରାମାଣିକ, ହସ୍ତନିର୍ମିତ ରତ୍ନ ସହିତ ଯୋଡ଼ିବା।",
+      "search": "ଶିଳ୍ପ, କାରିଗରମାନଙ୍କୁ ଖୋଜନ୍ତୁ..."
+    },
+    "shop": {
+      "filter": "ଫିଲ୍ଟରଗୁଡ଼ିକ",
+      "sort": "ଏହା ଦ୍ୱାରା ସଜାନ୍ତୁ",
+      "category": "ବର୍ଗ",
+      "region": "ଅଞ୍ଚଳ",
+      "price": "ମୂଲ୍ୟ",
+      "apply": "ଫିଲ୍ଟର ପ୍ରୟୋଗ କରନ୍ତୁ",
+      "reset": "ପୁନଃସେଟ୍",
+      "viewDetails": "ବିବରଣୀ ଦେଖନ୍ତୁ",
+      "buyNow": "ବର୍ତ୍ତମାନ କିଣନ୍ତୁ",
+      "addToCart": "କାର୍ଟରେ ଯୋଡ଼ନ୍ତୁ"
+    },
+    "auction": {
+      "title": "ଐତିହ୍ୟ ନିଲାମ",
+      "vault": "ରାଜକୀୟ ଭଣ୍ଡାର",
+      "live": "ସର୍ବୋଚ୍ଚ ଲାଇଭ୍ ବିଡ୍",
+      "minBid": "ପରବର୍ତ୍ତୀ ସର୍ବନିମ୍ନ",
+      "placeBid": "ବିଡ୍ ଦିଅନ୍ତୁ",
+      "ended": "ନିଲାମ ଶେଷ",
+      "winner": "ବିଜେତା ବିଡ୍",
+      "history": "ବିଡ୍ ଇତିହାସ"
+    },
+    "dashboard": {
+      "welcome": "ପୁନର୍ବାର ସ୍ୱାଗତ",
+      "revenue": "ମୋଟ ରାଜସ୍ୱ",
+      "sales": "ମୋଟ ବିକ୍ରୟ",
+      "stock": "ସକ୍ରିୟ ଉତ୍ପାଦଗୁଡ଼ିକ",
+      "orders": "ସମ୍ପ୍ରତି ଅର୍ଡର",
+      "create": "ନୂତନ ସାମଗ୍ରୀ ପ୍ରସ୍ତୁତ କରନ୍ତୁ"
+    },
+    "profile": {
+      "follow": "ଅନୁସରଣ କରନ୍ତୁ",
+      "following": "ଅନୁସରଣ କରୁଛନ୍ତି",
+      "creations": "ସୃଷ୍ଟିଗୁଡ଼ିକ",
+      "patrons": "ସହାୟକ",
+      "reviews": "ସମୀକ୍ଷାଗୁଡ଼ିକ",
+      "story": "କାହାଣୀ"
+    }
   },
   "pa": {
-    "dashboard": "ਡੈਸ਼ਬੋਰਡ",
-    "products": "ਉਤਪਾਦ",
-    "analytics": "ਵਿਸ਼ਲੇਸ਼ਣ",
-    "settings": "ਸੈਟਿੰਗਾਂ",
-    "yourProfile": "ਤੁਹਾਡਾ ਪ੍ਰੋਫਾਈਲ",
-    "artisanAccount": "ਕਾਰੀਗਰ ਖਾਤਾ",
-    "discover": "ਖੋਜੋ",
-    "regions": "ਖੇਤਰ",
-    "artisans": "ਕਾਰੀਗਰ",
-    "stories": "ਕਹਾਣੀਆਂ",
-    "auction": "ਨਿਲਾਮੀ",
-    "signIn": "ਸਾਈਨ ਇਨ",
-    "signUp": "ਸਾਈਨ ਅੱਪ",
-    "goToDashboard": "ਡੈਸ਼ਬੋਰਡ 'ਤੇ ਜਾਓ",
-    "heroTitle1": "ਕਾਰੀਗਰ ਦਾ",
-    "heroTitle2": "ਕਰਘਾ",
-    "heroSubtitle": "AI-ਪਾਵਰਡ ਟੂਲਜ਼ ਨਾਲ ਭਾਰਤੀ ਕਾਰੀਗਰਾਂ ਨੂੰ ਸ਼ਕਤੀਕਰਨ ਕਰਨਾ, ਜਦੋਂ ਕਿ ਦੁਨੀਆ ਨੂੰ ਪ੍ਰਮਾਣਿਕ, ਹੱਥਾਂ ਨਾਲ ਬਣੇ ਖਜ਼ਾਨਿਆਂ ਨਾਲ ਜੋੜਨਾ।",
-    "searchPlaceholder": "ਸ਼ਿਲਪਕਾਰੀ, ਕਾਰੀਗਰਾਂ ਦੀ ਖੋਜ ਕਰੋ..."
+    "nav": {
+      "home": "Home",
+      "shop": "Shop",
+      "atlas": "Craft Atlas",
+      "artisans": "Artisans",
+      "stories": "Stories",
+      "auction": "Auctions",
+      "dashboard": "Dashboard",
+      "login": "Sign In",
+      "signup": "Sign Up"
+    },
+    "hero": {
+      "title1": "The Artisan's",
+      "title2": "Loom",
+      "subtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
+      "search": "Search for crafts, artisans..."
+    },
+    "shop": {
+      "filter": "Filters",
+      "sort": "Sort By",
+      "category": "Category",
+      "region": "Region",
+      "price": "Price",
+      "apply": "Apply Filters",
+      "reset": "Reset",
+      "viewDetails": "View Details",
+      "buyNow": "Buy Now",
+      "addToCart": "Add to Cart"
+    },
+    "auction": {
+      "title": "Heritage Auctions",
+      "vault": "The Royal Vault",
+      "live": "Live Highest Bid",
+      "minBid": "Next Minimum",
+      "placeBid": "Place Bid",
+      "ended": "Auction Closed",
+      "winner": "Winning Bid",
+      "history": "Bid History"
+    },
+    "dashboard": {
+      "welcome": "Welcome back",
+      "revenue": "Total Revenue",
+      "sales": "Total Sales",
+      "stock": "Active Products",
+      "orders": "Recent Orders",
+      "create": "Craft New Item"
+    },
+    "profile": {
+      "follow": "Follow",
+      "following": "Following",
+      "creations": "Creations",
+      "patrons": "Patrons",
+      "reviews": "Reviews",
+      "story": "The Story"
+    }
   },
   "ur": {
-    "dashboard": "ڈیش بورڈ",
-    "products": "مصنوعات",
-    "analytics": "تجزیات",
-    "settings": "ترتیبات",
-    "yourProfile": "آپ کا پروفائل",
-    "artisanAccount": "کاریگر کا اکاؤنٹ",
-    "discover": "دریافت کریں",
-    "regions": "علاقے",
-    "artisans": "کاریگر",
-    "stories": "کہانیاں",
-    "auction": "نیلامی",
-    "signIn": "سائن ان کریں",
-    "signUp": "سائن اپ کریں",
-    "goToDashboard": "ڈیش بورڈ پر جائیں",
-    "heroTitle1": "کاریگر کا",
-    "heroTitle2": "لوم",
-    "heroSubtitle": "ہندوستانی کاریگروں کو AI سے چلنے والے اوزاروں سے بااختیار بنانا جبکہ دنیا کو مستند، ہاتھ سے بنے خزانوں سے جوڑنا۔",
-    "searchPlaceholder": "دستکاری، کاریگروں کو تلاش کریں..."
+    "nav": {
+      "home": "Home",
+      "shop": "Shop",
+      "atlas": "Craft Atlas",
+      "artisans": "Artisans",
+      "stories": "Stories",
+      "auction": "Auctions",
+      "dashboard": "Dashboard",
+      "login": "Sign In",
+      "signup": "Sign Up"
+    },
+    "hero": {
+      "title1": "The Artisan's",
+      "title2": "Loom",
+      "subtitle": "Empowering Indian artisans with AI-powered tools while connecting the world to authentic, handmade treasures.",
+      "search": "Search for crafts, artisans..."
+    },
+    "shop": {
+      "filter": "Filters",
+      "sort": "Sort By",
+      "category": "Category",
+      "region": "Region",
+      "price": "Price",
+      "apply": "Apply Filters",
+      "reset": "Reset",
+      "viewDetails": "View Details",
+      "buyNow": "Buy Now",
+      "addToCart": "Add to Cart"
+    },
+    "auction": {
+      "title": "Heritage Auctions",
+      "vault": "The Royal Vault",
+      "live": "Live Highest Bid",
+      "minBid": "Next Minimum",
+      "placeBid": "Place Bid",
+      "ended": "Auction Closed",
+      "winner": "Winning Bid",
+      "history": "Bid History"
+    },
+    "dashboard": {
+      "welcome": "Welcome back",
+      "revenue": "Total Revenue",
+      "sales": "Total Sales",
+      "stock": "Active Products",
+      "orders": "Recent Orders",
+      "create": "Craft New Item"
+    },
+    "profile": {
+      "follow": "Follow",
+      "following": "Following",
+      "creations": "Creations",
+      "patrons": "Patrons",
+      "reviews": "Reviews",
+      "story": "The Story"
+    }
   }
 };
   

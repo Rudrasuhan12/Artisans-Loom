@@ -1,13 +1,9 @@
 generator client {
   provider = "prisma-client-js"
-  // [FIX]: Hardcoded output removed to allow the postinstall script 
-  // to handle local generation on Render.
 }
 
 datasource db {
   provider = "postgresql"
-  // [FIX]: url property is removed here for Prisma 7 compatibility. 
-  // Connection is handled via server/prisma.config.js and constructor injection.
 }
 
 enum Role {
@@ -35,7 +31,7 @@ model User {
   products     Product[]
   orders       Order[]
   bids         Bid[]
-  stories      Story[]       // Relation to the Artisan Spotlight stories
+  stories      Story[]       
   forumPosts   ForumPost[]
   forumLikes   ForumLike[]
   followedBy   Follows[]     @relation("following")
@@ -43,6 +39,9 @@ model User {
   chatHistory  ChatHistory[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  reviewsWritten  Review[]  @relation("WrittenReviews")
+  reviewsReceived Review[]  @relation("ReceivedReviews")
+  image        String? 
 }
 
 model Profile {
@@ -179,4 +178,17 @@ model Follows {
   followingId String
 
   @@id([followerId, followingId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      
+  comment   String
+  createdAt DateTime @default(now())
+
+  authorId  String
+  author    User     @relation("WrittenReviews", fields: [authorId], references: [id])
+
+  artisanId String
+  artisan   User     @relation("ReceivedReviews", fields: [artisanId], references: [id])
 }
