@@ -249,12 +249,12 @@ export default function HeroSection() {
 
         <div className="hidden lg:block shrink-0 opacity-40 scale-75 -mt-2"><RoyalDivider /></div>
 
-        <div className="flex-1 grid lg:grid-cols-12 gap-8 items-center min-h-0 pb-6 lg:pb-10">
-          <div className="lg:col-span-6 flex flex-col justify-center space-y-4 lg:space-y-6">
+        <div className="flex-1 grid lg:grid-cols-12 gap-4 lg:gap-8 items-center min-h-0 pb-4 lg:pb-10">
+          <div className="lg:col-span-6 flex flex-col justify-center space-y-3 lg:space-y-6">
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-linear-to-r from-white/80 to-white/40 border border-[#D4AF37]/30 text-[#4A3526] text-xs lg:text-sm font-medium shadow-sm backdrop-blur-md">
-                <span className="text-[#D97742] animate-spin-slow">✨</span> 
-                <span>मिट्टी से | परम्परा हाट</span> 
+                <span className="text-[#D97742] animate-spin-slow">✨</span>
+                <span>मिट्टी से | परम्परा हाट</span>
               </div>
             </div>
 
@@ -319,8 +319,8 @@ export default function HeroSection() {
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-4 pt-3">
-               <Link href="/shop" className="group relative rounded-xl p-0.5 bg-linear-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] shadow-xl hover:shadow-[#D97742]/40 transition-shadow duration-300">
+            <div className="flex flex-wrap gap-4 pt-2 lg:pt-3">
+              <Link href="/shop" className="group relative rounded-xl p-0.5 bg-linear-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] shadow-xl hover:shadow-[#D97742]/40 transition-shadow duration-300">
                 <Button className="relative h-12 lg:h-14 px-8 rounded-[10px] border-none text-white text-lg font-serif font-medium overflow-hidden bg-linear-to-b from-[#E68A53] to-[#C05621] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] hover:brightness-110 active:scale-95 transition-all">
                   <span className="relative z-10 flex items-center gap-2 drop-shadow-md">
                     <ShoppingBag className="w-5 h-5" /> Browse All Products
@@ -338,11 +338,20 @@ export default function HeroSection() {
             </div>
           </div>
 
+          {/* Mobile Hero Image */}
+          <div className="flex lg:hidden w-full h-48 relative mt-2">
+            <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl shadow-[#4A3526]/10 border-4 border-white">
+              <Image src="/hero-image.jpg" alt="Artisan at work" fill className="object-cover" priority sizes="100vw" />
+              <div className="absolute inset-0 bg-linear-to-tr from-[#4A3526]/30 via-transparent to-[#FFF5E1]/20 mix-blend-overlay pointer-events-none"></div>
+            </div>
+          </div>
+
+          {/* Desktop Hero Image */}
           <div className="hidden lg:flex lg:col-span-6 h-full items-center justify-end relative">
             <div className="relative w-full h-[85%] max-h-187.5 rounded-4xl overflow-hidden shadow-2xl shadow-[#4A3526]/10 border-[6px] border-white group">
-               <Image src="/hero-image.jpg" alt="Artisan at work" fill className="object-cover transition-transform duration-1000 group-hover:scale-110" priority sizes="(max-width: 768px) 100vw, 50vw" />
-               <div className="absolute inset-0 bg-linear-to-tr from-[#4A3526]/30 via-transparent to-[#FFF5E1]/20 mix-blend-overlay pointer-events-none"></div>
-               <div className="absolute inset-0 shadow-[inset_0_0_80px_rgba(44,24,16,0.2)] pointer-events-none"></div>
+              <Image src="/hero-image.jpg" alt="Artisan at work" fill className="object-cover transition-transform duration-1000 group-hover:scale-110" priority sizes="(max-width: 768px) 100vw, 50vw" />
+              <div className="absolute inset-0 bg-linear-to-tr from-[#4A3526]/30 via-transparent to-[#FFF5E1]/20 mix-blend-overlay pointer-events-none"></div>
+              <div className="absolute inset-0 shadow-[inset_0_0_80px_rgba(44,24,16,0.2)] pointer-events-none"></div>
             </div>
             <div className="absolute -z-10 bottom-20 -left-10 w-40 h-40 border border-[#D4AF37]/20 rounded-full animate-pulse"></div>
             <div className="absolute -z-10 top-20 -right-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-3xl"></div>
