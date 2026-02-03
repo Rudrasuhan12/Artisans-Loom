@@ -27,6 +27,7 @@ A full-stack e-commerce and community platform connecting traditional artisans w
 - [Testing](#-testing)
 - [Contributing](#-contributing)
 - [License](#-license)
+- [Contributors](#-contributors)
 
 ## 🎯 Overview
 
@@ -1269,7 +1270,7 @@ This project is licensed under the **MIT License**.
 ```
 MIT License
 
-Copyright (c) 2026 Sambit Kumar Mohanty
+Copyright (c) 2026 Sambit Kumar Mohanty & Rudranarayan Ray
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1290,12 +1291,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## 📞 Contact & Support
+## 👥 Contributors
 
-**Developer**: Sambit Kumar Mohanty  
-**GitHub**: [@Sambit-Kumar-Mohanty-26](https://github.com/Sambit-Kumar-Mohanty-26)  
-**Email**: [sambitkumarmohanty25@gmail.com](mailto:sambitkumarmohanty25@gmail.com)  
-**LinkedIn**: [Connect on LinkedIn](https://www.linkedin.com/in/sambit-kumar-mohanty)
+This project is built and maintained by:
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Sambit-Kumar-Mohanty-26">
+        <img src="https://github.com/Sambit-Kumar-Mohanty-26.png" width="100px;" alt="Sambit Kumar Mohanty"/>
+        <br />
+        <sub><b>Sambit Kumar Mohanty</b></sub>
+      </a>
+      <br />
+      <a href="https://github.com/Sambit-Kumar-Mohanty-26/Artisans-Loom/commits?author=Sambit-Kumar-Mohanty-26" title="Code">💻</a>
+      <a href="https://github.com/Sambit-Kumar-Mohanty-26" title="Documentation">📖</a>
+      <a href="#design" title="Design">🎨</a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/Rudrasuhan12">
+        <img src="https://github.com/Rudrasuhan12.png" width="100px;" alt="Rudranarayan Ray"/>
+        <br />
+        <sub><b>Rudranarayan Ray</b></sub>
+      </a>
+      <br />
+      <a href="https://github.com/Sambit-Kumar-Mohanty-26/Artisans-Loom/commits?author=Rudrasuhan12" title="Code">💻</a>
+      <a href="#ideas" title="Ideas & Planning">🤔</a>
+      <a href="#design" title="Design">🎨</a>
+    </td>
+  </tr>
+</table>
 
 ### Get Help
 
