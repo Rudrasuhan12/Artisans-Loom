@@ -12,6 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import ReviewSection from "./ReviewSection";
 import AutoTranslate from "@/components/ui/auto-translate";
+import VerifiedBadge, { VerifiedBadgeInline } from "@/components/ui/verified-badge";
 
 export default function ProfileUI({ artisan, currentUser, isFollowing, isMe }: any) {
   const [following, setFollowing] = useState(isFollowing);
@@ -60,20 +61,30 @@ export default function ProfileUI({ artisan, currentUser, isFollowing, isMe }: a
                  />
 
               </div>
-              <div className="absolute bottom-2 right-2 bg-[#2F334F] text-[#D4AF37] p-2 rounded-full border-4 border-white shadow-lg">
-                 <Award className="w-5 h-5" />
-              </div>
+              {artisan.profile?.isVerified ? (
+                 <div className="absolute bottom-2 right-2 border-4 border-white shadow-lg rounded-full">
+                   <VerifiedBadge size="lg" variant="crown" showTooltip={true} />
+                 </div>
+              ) : (
+                 <div className="absolute bottom-2 right-2 bg-[#2F334F] text-[#D4AF37] p-2 rounded-full border-4 border-white shadow-lg">
+                   <Award className="w-5 h-5" />
+                 </div>
+              )}
            </div>
 
            <div className="flex-1 text-center md:text-left space-y-4">
               <div>
                  <div className="flex flex-col md:flex-row items-center md:items-baseline gap-3 mb-2">
-                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#2C1810]">
+                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#2C1810] flex items-center gap-2">
                       {artisan.name}
+                      {artisan.profile?.isVerified && <VerifiedBadge size="lg" variant="gold" />}
                     </h1>
-                    <span className="px-3 py-1 bg-[#F3E5AB]/50 border border-[#D4AF37]/30 text-[#4A3526] text-xs font-bold uppercase tracking-widest rounded-full">
-                      <AutoTranslate text={artisan.profile?.craftType || "Master Artisan"} />
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-[#F3E5AB]/50 border border-[#D4AF37]/30 text-[#4A3526] text-xs font-bold uppercase tracking-widest rounded-full">
+                        <AutoTranslate text={artisan.profile?.craftType || "Master Artisan"} />
+                      </span>
+                      {artisan.profile?.isVerified && <VerifiedBadgeInline />}
+                    </div>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 text-[#8C7B70] text-sm font-medium">

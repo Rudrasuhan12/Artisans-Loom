@@ -6,6 +6,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+// In-memory cache for recommendations (survives per-server instance)
+// Cache for 6 hours to reduce API calls dramatically
+const recommendationCache = new Map<string, { data: PersonalizedRecommendation; timestamp: number }>();
+const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+
+// Rate limit cooldown - when hit, don't call AI for this duration
+let rateLimitCooldown = 0;
+const RATE_LIMIT_COOLDOWN_DURATION = 60 * 1000; // 60 seconds cooldown after rate limit
+
 interface UserHistory {
   purchaseCategories: string[];
   purchaseMaterials: string[];
@@ -98,9 +107,48 @@ async function aggregateUserHistory(userId: string): Promise<UserHistory | null>
 }
 
 /**
- * Uses Gemini AI to generate personalized recommendations based on user history
+ * Generates fallback recommendations based on user history without AI
  */
-async function getAIRecommendations(history: UserHistory): Promise<PersonalizedRecommendation> {
+function generateFallbackRecommendations(history: UserHistory): PersonalizedRecommendation {
+  // Use the user's actual purchase categories if available
+  const categories = history.purchaseCategories.length > 0 
+    ? history.purchaseCategories.slice(0, 3)
+    : ["Textiles", "Home Decor", "Jewelry"];
+  
+  // Combine materials and keywords for tags
+  const tags = [
+    ...history.purchaseMaterials.slice(0, 4),
+    ...history.chatKeywords.slice(0, 4),
+    "handcrafted", "traditional", "artisan"
+  ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 8);
+
+  return {
+    recommendedCategories: categories,
+    recommendedTags: tags.length > 0 ? tags : ["handcrafted", "traditional", "artisan", "ethnic"],
+    reasoning: history.purchaseCategories.length > 0 
+      ? `Based on your interest in ${categories[0]}` 
+      : "Popular categories for new users",
+  };
+}
+
+/**
+ * Uses Gemini AI to generate personalized recommendations based on user history
+ * Includes caching to reduce API calls
+ */
+async function getAIRecommendations(history: UserHistory, userId: string): Promise<PersonalizedRecommendation> {
+  // Check cache first
+  const cached = recommendationCache.get(userId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log("Using cached recommendations for user:", userId.slice(0, 8) + "...");
+    return cached.data;
+  }
+
+  // Check if we're in rate limit cooldown - use fallback without calling AI
+  if (Date.now() < rateLimitCooldown) {
+    console.log("Rate limit cooldown active, using fallback recommendations");
+    return generateFallbackRecommendations(history);
+  }
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `
@@ -129,15 +177,30 @@ async function getAIRecommendations(history: UserHistory): Promise<PersonalizedR
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(text);
-  } catch (error) {
+    const recommendations = JSON.parse(text);
+    
+    // Cache the result
+    recommendationCache.set(userId, { data: recommendations, timestamp: Date.now() });
+    console.log("Cached new recommendations for user:", userId.slice(0, 8) + "...");
+    
+    return recommendations;
+  } catch (error: unknown) {
     console.error("AI Recommendation Error:", error);
-    // Fallback recommendations
-    return {
-      recommendedCategories: ["Textiles", "Home Decor", "Jewelry"],
-      recommendedTags: ["handcrafted", "traditional", "artisan"],
-      reasoning: "Popular categories for new users",
-    };
+    
+    // Check if it's a rate limit error (429)
+    if (error && typeof error === 'object' && 'status' in error && error.status === 429) {
+      // Set cooldown to prevent repeated failed calls
+      rateLimitCooldown = Date.now() + RATE_LIMIT_COOLDOWN_DURATION;
+      console.log("Rate limit hit, cooldown activated for 60 seconds");
+    }
+    
+    // Use smart fallback based on user's actual history
+    const fallback = generateFallbackRecommendations(history);
+    
+    // Cache the fallback too (but for shorter time - 1 hour)
+    recommendationCache.set(userId, { data: fallback, timestamp: Date.now() - (CACHE_TTL - 60 * 60 * 1000) });
+    
+    return fallback;
   }
 }
 
@@ -232,7 +295,7 @@ export async function getPersonalizedRecommendations(limit: number = 8) {
   }
 
   // Get AI recommendations based on history
-  const recommendations = await getAIRecommendations(history);
+  const recommendations = await getAIRecommendations(history, userId);
 
   // Fetch products matching recommendations
   const products = await fetchPersonalizedProducts(recommendations, limit);

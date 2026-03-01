@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User } from "lucide-react";
+import { User, ShieldCheck } from "lucide-react";
 import { updateArtisanProfile } from "@/app/actions/settings";
 import { RoyalDivider } from "@/components/ui/royal-divider";
+import VerificationUpload from "@/components/artisan/VerificationUpload";
 
 export default async function SettingsPage() {
   const { userId } = await auth();
@@ -78,6 +79,29 @@ export default async function SettingsPage() {
               </div>
 
             </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* VERIFICATION SECTION */}
+      <div className="relative group rounded-4xl p-0.75 bg-linear-to-b from-emerald-200 via-emerald-400 to-emerald-600 shadow-xl">
+        <Card className="border-none bg-[#FFFBF5] rounded-[1.8rem] overflow-hidden">
+          <CardHeader className="bg-emerald-700 text-white p-8 flex flex-row items-center gap-4">
+             <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center border border-emerald-300/50">
+                <ShieldCheck className="w-8 h-8 text-emerald-200" />
+             </div>
+             <div>
+               <CardTitle className="text-2xl font-serif">Artisan Verification</CardTitle>
+               <p className="text-sm text-emerald-200">Get verified to build trust with customers.</p>
+             </div>
+          </CardHeader>
+          
+          <CardContent className="p-8">
+            <VerificationUpload 
+              isVerified={user.profile.isVerified}
+              verificationStatus={user.profile.verificationStatus || "none"}
+              verificationNote={user.profile.verificationNote}
+            />
           </CardContent>
         </Card>
       </div>

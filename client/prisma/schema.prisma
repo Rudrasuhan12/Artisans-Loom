@@ -34,20 +34,24 @@ model User {
 }
 
 model Profile {
-  id                String  @id @default(cuid())
-  userId            String  @unique
-  businessName      String?
-  craftType         String?
-  bio               String?
-  location          String?
-  state             String?
-  yearsOfExperience Int?
-  city              String?
-  country           String? @default("India")
-  phoneNumber       String?
-  pincode           String?
-  streetAddress     String?
-  user              User    @relation(fields: [userId], references: [id])
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  businessName         String?
+  craftType            String?
+  bio                  String?
+  location             String?
+  state                String?
+  yearsOfExperience    Int?
+  city                 String?
+  country              String?  @default("India")
+  phoneNumber          String?
+  pincode              String?
+  streetAddress        String?
+  isVerified           Boolean  @default(false)
+  verificationVideoUrl String?
+  verificationStatus   String   @default("none") // none, pending, approved, rejected
+  verificationNote     String?
+  user                 User     @relation(fields: [userId], references: [id])
 }
 
 model Product {
