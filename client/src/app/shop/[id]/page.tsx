@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, ShieldCheck, Truck, RefreshCw } from "lucide-react";
 import AddToCartActions from "./AddToCartActions"; // [IMPORT THE NEW LOGIC]
 import BackButton from "@/components/ui/BackButton"; // [NEW] Add back button
+import SimilarProducts from "@/components/shop/SimilarProducts";
 
 // Helper function to fetch product data
 async function getProduct(id: string) {
@@ -140,6 +141,13 @@ export default async function ProductDetails({
             </Button>
           </div>
         </div>
+
+        {/* SIMILAR PRODUCTS SECTION */}
+        <SimilarProducts 
+          productId={product.id}
+          currentCategory={product.category}
+          currentMaterials={product.materials || []}
+        />
       </div>
     </main>
   );

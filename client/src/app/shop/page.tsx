@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/dashboard/BackButton";
 import AutoTranslate from "@/components/ui/auto-translate";
+import RecommendedTags from "@/components/shop/RecommendedTags";
 
 export const dynamic = 'force-dynamic';
 
@@ -182,6 +183,9 @@ function ShopContent() {
             <Filter className="w-4 h-4 mr-2" /> Filters
           </Button>
         </div>
+
+        {/* AI-Powered Recommended Tags */}
+        {!initialQuery && <RecommendedTags />}
 
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           
