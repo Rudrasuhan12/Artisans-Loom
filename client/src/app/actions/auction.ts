@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
+import { sendOutbidAlert, sendAuctionWonEmail, sendArtisanNewOrderNotification } from "@/lib/email";
 
 export async function placeBidAction(auctionId: string, amount: number) {
   const { userId } = await auth();
@@ -18,6 +19,13 @@ export async function placeBidAction(auctionId: string, amount: number) {
     throw new Error("Bid must be higher than current price");
   }
 
+  // Find the current highest bidder BEFORE placing the new bid
+  const previousHighestBid = await prisma.bid.findFirst({
+    where: { auctionId },
+    orderBy: { amount: "desc" },
+    include: { user: true },
+  });
+
   await prisma.$transaction([
     prisma.bid.create({
       data: { amount, auctionId, userId: user.id }
@@ -27,6 +35,24 @@ export async function placeBidAction(auctionId: string, amount: number) {
       data: { currentBid: amount }
     })
   ]);
+
+  // Send outbid email to the previous highest bidder (non-blocking)
+  if (previousHighestBid && previousHighestBid.userId !== user.id) {
+    const auctionWithProduct = await prisma.auctionItem.findUnique({
+      where: { id: auctionId },
+      include: { product: true },
+    });
+    if (auctionWithProduct) {
+      sendOutbidAlert({
+        previousBidderName: previousHighestBid.user.name || "Collector",
+        previousBidderEmail: previousHighestBid.user.email,
+        auctionId,
+        productTitle: auctionWithProduct.product.title,
+        previousBid: previousHighestBid.amount,
+        newBid: amount,
+      });
+    }
+  }
 
   revalidatePath(`/auction/${auctionId}`);
 }
@@ -49,6 +75,7 @@ export async function checkAndResolveAuctionAction(auctionId: string) {
     }
 
     const winner = auction.bids[0];
+    const winnerUser = await prisma.user.findUnique({ where: { id: winner.userId } });
     
     await prisma.$transaction(async (tx) => {
       await tx.auctionItem.update({
@@ -76,6 +103,29 @@ export async function checkAndResolveAuctionAction(auctionId: string) {
         data: { stock: 0, salesCount: { increment: 1 } }
       });
     });
+
+    // Send auction won email to winner (non-blocking)
+    if (winnerUser) {
+      sendAuctionWonEmail({
+        winnerName: winnerUser.name || "Collector",
+        winnerEmail: winnerUser.email,
+        productTitle: auction.product.title,
+        winningBid: winner.amount,
+        auctionId,
+      });
+
+      // Notify artisan about the auction sale
+      const artisan = await prisma.user.findUnique({ where: { id: auction.product.artisanId } });
+      if (artisan) {
+        sendArtisanNewOrderNotification({
+          artisanName: artisan.name || "Artisan",
+          artisanEmail: artisan.email,
+          orderId: auctionId,
+          items: [{ title: auction.product.title, quantity: 1, price: winner.amount }],
+          customerName: winnerUser.name || "A Patron",
+        });
+      }
+    }
 
     revalidatePath("/auction");
     revalidatePath("/customer");

@@ -147,6 +147,20 @@ export async function reviewVerification(
       });
     }
 
+    // Send verification status email to the artisan (non-blocking)
+    const artisanUser = await prisma.user.findUnique({
+      where: { id: profile.userId },
+    });
+    if (artisanUser) {
+      const { sendVerificationStatusEmail } = await import("@/lib/email");
+      sendVerificationStatusEmail({
+        artisanName: artisanUser.name || "Artisan",
+        artisanEmail: artisanUser.email,
+        status: action === "approve" ? "approved" : "rejected",
+        note: note,
+      });
+    }
+
     revalidatePath("/admin/verification");
 
     return { success: true };

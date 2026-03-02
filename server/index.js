@@ -9,6 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const { Pool } = require('pg'); 
 const { PrismaPg } = require('@prisma/adapter-pg'); 
 const { GoogleGenAI } = require("@google/genai"); 
+const nodemailer = require('nodemailer');
 
 // Mandatory check for environment variables
 if (!process.env.DATABASE_URL) {
@@ -38,6 +39,58 @@ const prisma = new PrismaClient({ adapter });
 
 // 2. AI Initialization (Using the latest Google AI SDK)
 const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+
+// 3. Email Transporter (Brevo SMTP via Nodemailer)
+const emailTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+// Email base layout for server-sent emails
+function emailBaseLayout(title, body) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${title}</title></head>
+  <body style="margin:0;padding:0;background:#faf7f2;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf7f2;padding:32px 0;">
+      <tr><td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <tr><td style="background:linear-gradient(135deg,#b45309,#92400e);padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;font-size:28px;color:#ffffff;letter-spacing:1px;">\uD83E\uDEA1 The Artisan's Loom</h1>
+            <p style="margin:8px 0 0;font-size:13px;color:#fde68a;letter-spacing:2px;text-transform:uppercase;">Heritage Handcrafted with Love</p>
+          </td></tr>
+          <tr><td style="padding:40px;">${body}</td></tr>
+          <tr><td style="background:#fef3c7;padding:24px 40px;text-align:center;border-top:1px solid #fde68a;">
+            <p style="margin:0;font-size:13px;color:#92400e;">Made with \u2764\uFE0F in India</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#a0835c;"><a href="${appUrl}" style="color:#b45309;text-decoration:none;">Visit Store</a></p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+}
+
+async function sendServerEmail(to, subject, title, body) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
+  try {
+    await emailTransporter.sendMail({
+      from: `"The Artisan's Loom" <${process.env.EMAIL_FROM}>`,
+      to,
+      subject,
+      html: emailBaseLayout(title, body),
+    });
+    console.log(`\uD83D\uDCE7 Email sent to ${to}: ${subject}`);
+  } catch (err) {
+    console.error('Server Email Error:', err.message);
+  }
+}
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -166,19 +219,76 @@ io.on('connection', (socket) => {
 
 // --- CRON JOBS ---
 
-// Every minute: Close expired auctions
+// Every minute: Close expired auctions & notify winners
 cron.schedule('* * * * *', async () => {
   const now = new Date();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   try {
     const expiredAuctions = await prisma.auctionItem.findMany({
-      where: { endTime: { lt: now }, status: 'ACTIVE' }
+      where: { endTime: { lt: now }, status: 'ACTIVE' },
+      include: {
+        product: { include: { artisan: true } },
+        bids: { orderBy: { amount: 'desc' }, take: 1, include: { user: true } },
+      },
     });
     for (let auction of expiredAuctions) {
-      await prisma.auctionItem.update({ 
-        where: { id: auction.id }, 
-        data: { status: 'SOLD' } 
-      });
-      console.log(`Closed auction: ${auction.id}`);
+      if (auction.bids.length > 0) {
+        const winner = auction.bids[0];
+
+        // Mark as SOLD and create order
+        await prisma.$transaction([
+          prisma.auctionItem.update({ where: { id: auction.id }, data: { status: 'SOLD' } }),
+          prisma.order.create({
+            data: {
+              customerId: winner.userId,
+              total: winner.amount,
+              status: 'Auction Won',
+              items: { create: { productId: auction.product.id, quantity: 1, price: winner.amount } },
+            },
+          }),
+          prisma.product.update({ where: { id: auction.product.id }, data: { stock: 0, salesCount: { increment: 1 } } }),
+        ]);
+
+        // Email the winner
+        const winPrice = winner.amount.toLocaleString('en-IN');
+        sendServerEmail(
+          winner.user.email,
+          `\uD83C\uDFC6 You Won \u2014 "${auction.product.title}"!`,
+          'Auction Won',
+          `<h2 style="margin:0 0 8px;font-size:22px;color:#292524;">Congratulations! \uD83C\uDFC6</h2>
+           <p style="font-size:15px;color:#57534e;line-height:1.6;">
+             <strong>${winner.user.name || 'Collector'}</strong>, you won the auction for
+             <strong>"${auction.product.title}"</strong> with a bid of <strong>\u20B9${winPrice}</strong>!
+           </p>
+           <div style="background:#ecfdf5;border-radius:10px;padding:16px 20px;margin:20px 0;text-align:center;">
+             <p style="margin:0;font-size:13px;color:#065f46;">An order has been created in your account.</p>
+           </div>
+           <table width="100%" style="margin:20px 0;"><tr><td align="center">
+             <a href="${appUrl}/customer/orders" style="display:inline-block;padding:14px 36px;background:#b45309;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">View Your Order \u2192</a>
+           </td></tr></table>`
+        );
+
+        // Email the artisan
+        sendServerEmail(
+          auction.product.artisan.email,
+          `\uD83C\uDF89 Auction Sold \u2014 "${auction.product.title}"`,
+          'Auction Sold',
+          `<h2 style="margin:0 0 8px;font-size:22px;color:#292524;">Your Auction Sold! \uD83C\uDF89</h2>
+           <p style="font-size:15px;color:#57534e;line-height:1.6;">
+             <strong>${auction.product.artisan.name || 'Artisan'}</strong>, your item
+             <strong>"${auction.product.title}"</strong> sold for <strong>\u20B9${winPrice}</strong>.
+           </p>
+           <table width="100%" style="margin:20px 0;"><tr><td align="center">
+             <a href="${appUrl}/artisan/orders" style="display:inline-block;padding:14px 36px;background:#b45309;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">View in Studio \u2192</a>
+           </td></tr></table>`
+        );
+
+        console.log(`\u2705 Closed auction ${auction.id} \u2014 winner: ${winner.user.name}`);
+      } else {
+        // No bids \u2014 mark as UNSOLD
+        await prisma.auctionItem.update({ where: { id: auction.id }, data: { status: 'UNSOLD' } });
+        console.log(`\u274C Auction ${auction.id} ended with no bids (UNSOLD)`);
+      }
     }
   } catch (error) { console.error("Auction Cron Error:", error); }
 });

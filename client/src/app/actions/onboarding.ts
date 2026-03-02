@@ -24,7 +24,7 @@ export async function onboardCustomerAction(formData: FormData) {
     budget: formData.get("budget")?.toString(),
   };
 
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { clerkId: userId },
     data: {
       role: "CUSTOMER",
@@ -36,6 +36,14 @@ export async function onboardCustomerAction(formData: FormData) {
         }
       }
     },
+  });
+
+  // Send welcome email (non-blocking)
+  const { sendWelcomeEmail } = await import("@/lib/email");
+  sendWelcomeEmail({
+    name: updatedUser.name || "Patron",
+    email: updatedUser.email,
+    role: "CUSTOMER",
   });
 
   redirect("/customer"); 
@@ -56,7 +64,7 @@ export async function onboardArtisanAction(formData: FormData) {
     bio: formData.get("bio")?.toString(),
   };
 
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { clerkId: userId },
     data: {
       role: "ARTISAN",
@@ -67,6 +75,14 @@ export async function onboardArtisanAction(formData: FormData) {
         },
       },
     },
+  });
+
+  // Send welcome email (non-blocking)
+  const { sendWelcomeEmail } = await import("@/lib/email");
+  sendWelcomeEmail({
+    name: updatedUser.name || "Artisan",
+    email: updatedUser.email,
+    role: "ARTISAN",
   });
 
   redirect("/artisan");
