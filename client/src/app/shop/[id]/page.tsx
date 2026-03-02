@@ -8,6 +8,7 @@ import AddToCartActions from "./AddToCartActions"; // [IMPORT THE NEW LOGIC]
 import BackButton from "@/components/ui/BackButton"; // [NEW] Add back button
 import SimilarProducts from "@/components/shop/SimilarProducts";
 import ARPreviewButton from "@/components/shop/ARPreviewButton";
+import CraftDNAButton from "@/components/shop/CraftDNAButton";
 
 // Helper function to fetch product data
 async function getProduct(id: string) {
@@ -118,6 +119,14 @@ export default async function ProductDetails({
                 productImage={product.images?.[0] || "/p1.png"}
                 productTitle={product.title}
                 category={product.category}
+              />
+            </div>
+
+            {/* CRAFT DNA / PRODUCT PASSPORT */}
+            <div className="mb-4">
+              <CraftDNAButton
+                productId={product.id}
+                productTitle={product.title}
               />
             </div>
 
