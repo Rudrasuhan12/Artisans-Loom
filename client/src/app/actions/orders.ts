@@ -23,6 +23,7 @@ export async function createOrderAction(cartItems: any[], totalAmount: number) {
           customerId: user.id,
           total: totalAmount,
           status: "Confirmed", // Initial status
+          paymentStatus: "unpaid", // Will be updated by Stripe webhook for online payments
           items: {
             create: cartItems.map((item) => ({
               productId: item.id,
