@@ -8,6 +8,72 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Helper: send order emails to customer + artisans
+async function sendOrderEmails(orderId: string, totalAmount: number) {
+  const orderWithDetails = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { include: { product: { include: { artisan: true } } } },
+      customer: true,
+    },
+  });
+
+  if (!orderWithDetails) {
+    console.error("Order not found for email sending:", orderId);
+    return;
+  }
+
+  // Email to customer
+  try {
+    await sendOrderConfirmation({
+      customerName: orderWithDetails.customer.name || "Valued Patron",
+      customerEmail: orderWithDetails.customer.email,
+      orderId,
+      items: orderWithDetails.items.map((i) => ({
+        title: i.product.title,
+        quantity: i.quantity,
+        price: i.price,
+      })),
+      total: totalAmount,
+    });
+    console.log(`📧 Order confirmation email sent to ${orderWithDetails.customer.email}`);
+  } catch (emailErr) {
+    console.error("Failed to send customer email:", emailErr);
+  }
+
+  // Email to each artisan
+  const artisanGroups = new Map<
+    string,
+    { artisan: any; items: typeof orderWithDetails.items }
+  >();
+  for (const item of orderWithDetails.items) {
+    const artisan = item.product.artisan;
+    if (!artisanGroups.has(artisan.id)) {
+      artisanGroups.set(artisan.id, { artisan, items: [] });
+    }
+    artisanGroups.get(artisan.id)!.items.push(item);
+  }
+
+  for (const [, group] of artisanGroups) {
+    try {
+      await sendArtisanNewOrderNotification({
+        artisanName: group.artisan.name || "Artisan",
+        artisanEmail: group.artisan.email,
+        orderId,
+        items: group.items.map((i) => ({
+          title: i.product.title,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        customerName: orderWithDetails.customer.name || "A Patron",
+      });
+      console.log(`📧 Artisan notification sent to ${group.artisan.email}`);
+    } catch (emailErr) {
+      console.error(`Failed to send artisan email to ${group.artisan.email}:`, emailErr);
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json();
@@ -34,7 +100,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingOrder) {
-      // Order already created (by webhook), just return success
+      // Order already created by webhook — still send emails in case webhook didn't
+      console.log(`Order ${existingOrder.id} already exists, ensuring emails are sent...`);
+      await sendOrderEmails(existingOrder.id, existingOrder.total);
+
       return NextResponse.json({
         success: true,
         orderId: existingOrder.id,
@@ -91,65 +160,7 @@ export async function POST(req: NextRequest) {
     console.log(`✅ Order ${order.id} created via verify-session for payment ${paymentIntent}`);
 
     // Send email notifications
-    const orderWithDetails = await prisma.order.findUnique({
-      where: { id: order.id },
-      include: {
-        items: { include: { product: { include: { artisan: true } } } },
-        customer: true,
-      },
-    });
-
-    if (orderWithDetails) {
-      // Email to customer
-      try {
-        await sendOrderConfirmation({
-          customerName: orderWithDetails.customer.name || "Valued Patron",
-          customerEmail: orderWithDetails.customer.email,
-          orderId: order.id,
-          items: orderWithDetails.items.map((i) => ({
-            title: i.product.title,
-            quantity: i.quantity,
-            price: i.price,
-          })),
-          total: totalAmount,
-        });
-        console.log(`📧 Order confirmation email sent to ${orderWithDetails.customer.email}`);
-      } catch (emailErr) {
-        console.error("Failed to send customer email:", emailErr);
-      }
-
-      // Email to each artisan
-      const artisanGroups = new Map<
-        string,
-        { artisan: any; items: typeof orderWithDetails.items }
-      >();
-      for (const item of orderWithDetails.items) {
-        const artisan = item.product.artisan;
-        if (!artisanGroups.has(artisan.id)) {
-          artisanGroups.set(artisan.id, { artisan, items: [] });
-        }
-        artisanGroups.get(artisan.id)!.items.push(item);
-      }
-
-      for (const [, group] of artisanGroups) {
-        try {
-          await sendArtisanNewOrderNotification({
-            artisanName: group.artisan.name || "Artisan",
-            artisanEmail: group.artisan.email,
-            orderId: order.id,
-            items: group.items.map((i) => ({
-              title: i.product.title,
-              quantity: i.quantity,
-              price: i.price,
-            })),
-            customerName: orderWithDetails.customer.name || "A Patron",
-          });
-          console.log(`📧 Artisan notification sent to ${group.artisan.email}`);
-        } catch (emailErr) {
-          console.error(`Failed to send artisan email to ${group.artisan.email}:`, emailErr);
-        }
-      }
-    }
+    await sendOrderEmails(order.id, totalAmount);
 
     return NextResponse.json({
       success: true,

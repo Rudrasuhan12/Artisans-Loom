@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`✅ Order ${order.id} created from Stripe payment ${session.payment_intent}`);
 
-      // 3. Send email notifications (non-blocking)
+      // 3. Send email notifications (must await on Vercel serverless!)
       const orderWithDetails = await prisma.order.findUnique({
         where: { id: order.id },
         include: {
@@ -99,17 +99,22 @@ export async function POST(req: NextRequest) {
 
       if (orderWithDetails) {
         // Email to customer
-        sendOrderConfirmation({
-          customerName: orderWithDetails.customer.name || "Valued Patron",
-          customerEmail: orderWithDetails.customer.email,
-          orderId: order.id,
-          items: orderWithDetails.items.map((i) => ({
-            title: i.product.title,
-            quantity: i.quantity,
-            price: i.price,
-          })),
-          total: totalAmount,
-        });
+        try {
+          await sendOrderConfirmation({
+            customerName: orderWithDetails.customer.name || "Valued Patron",
+            customerEmail: orderWithDetails.customer.email,
+            orderId: order.id,
+            items: orderWithDetails.items.map((i) => ({
+              title: i.product.title,
+              quantity: i.quantity,
+              price: i.price,
+            })),
+            total: totalAmount,
+          });
+          console.log(`📧 Webhook: Order email sent to ${orderWithDetails.customer.email}`);
+        } catch (emailErr) {
+          console.error("Webhook: Failed to send customer email:", emailErr);
+        }
 
         // Email to each artisan
         const artisanGroups = new Map<
@@ -125,17 +130,22 @@ export async function POST(req: NextRequest) {
         }
 
         for (const [, group] of artisanGroups) {
-          sendArtisanNewOrderNotification({
-            artisanName: group.artisan.name || "Artisan",
-            artisanEmail: group.artisan.email,
-            orderId: order.id,
-            items: group.items.map((i) => ({
-              title: i.product.title,
-              quantity: i.quantity,
-              price: i.price,
-            })),
-            customerName: orderWithDetails.customer.name || "A Patron",
-          });
+          try {
+            await sendArtisanNewOrderNotification({
+              artisanName: group.artisan.name || "Artisan",
+              artisanEmail: group.artisan.email,
+              orderId: order.id,
+              items: group.items.map((i) => ({
+                title: i.product.title,
+                quantity: i.quantity,
+                price: i.price,
+              })),
+              customerName: orderWithDetails.customer.name || "A Patron",
+            });
+            console.log(`📧 Webhook: Artisan email sent to ${group.artisan.email}`);
+          } catch (emailErr) {
+            console.error(`Webhook: Failed to send artisan email:`, emailErr);
+          }
         }
       }
     } catch (error) {
