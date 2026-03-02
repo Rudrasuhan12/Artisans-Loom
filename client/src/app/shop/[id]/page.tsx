@@ -7,6 +7,7 @@ import { MapPin, ShieldCheck, Truck, RefreshCw, BadgeCheck } from "lucide-react"
 import AddToCartActions from "./AddToCartActions"; // [IMPORT THE NEW LOGIC]
 import BackButton from "@/components/ui/BackButton"; // [NEW] Add back button
 import SimilarProducts from "@/components/shop/SimilarProducts";
+import ARPreviewButton from "@/components/shop/ARPreviewButton";
 
 // Helper function to fetch product data
 async function getProduct(id: string) {
@@ -110,6 +111,15 @@ export default async function ProductDetails({
 
             {/* ACTION BUTTONS - Now Active via the Client Component */}
             <AddToCartActions product={product} />
+
+            {/* AR PREVIEW BUTTON */}
+            <div className="my-4">
+              <ARPreviewButton
+                productImage={product.images?.[0] || "/p1.png"}
+                productTitle={product.title}
+                category={product.category}
+              />
+            </div>
 
             {/* TRUST BADGES */}
             <div className="grid grid-cols-3 gap-4 py-6 border-y border-[#E5DCCA]">

@@ -7,13 +7,13 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 /**
  * Generate embedding vector for text using Gemini
- * Returns a 768-dimensional vector
+ * Returns a 768-dimensional vector (truncated from 3072 to match DB schema)
  */
 async function generateEmbedding(text: string): Promise<number[]> {
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-  
+  const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
   const result = await model.embedContent(text);
-  return result.embedding.values;
+  // Truncate to 768 dimensions to match the database vector column
+  return result.embedding.values.slice(0, 768);
 }
 
 /**
