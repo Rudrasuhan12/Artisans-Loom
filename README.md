@@ -63,7 +63,8 @@ A full-stack e-commerce and community platform connecting traditional artisans w
 - **Artisan Profiles**: View detailed artisan information and follow favorites
 - **Order Tracking**: Monitor order status from placement to delivery
 - **Review System**: Rate and review artisans and products
-- **Secure Checkout**: Streamlined checkout with order history
+- **Stripe Payments**: Secure checkout with Stripe payment gateway (test & live modes)
+- **Email Notifications**: Order confirmation and updates delivered via Brevo SMTP
 
 ### 🤖 AI-Powered Features
 
@@ -79,6 +80,24 @@ A full-stack e-commerce and community platform connecting traditional artisans w
 - **Artisan Stories**: Featured articles highlighting craft journeys
 - **Follow System**: Connect with favorite artisans
 - **Social Engagement**: Like, comment, and share content
+
+### 💳 Payment & Notifications
+
+- **Stripe Payment Gateway**: Secure card payments with Stripe Checkout
+- **Payment Verification**: Server-side session verification for reliability
+- **Order Confirmation Emails**: Branded HTML emails to customers on purchase
+- **Artisan Order Alerts**: Automated email notifications to artisans on new orders
+- **Outbid Alerts**: Email notifications when outbid in auctions
+- **Auction Won Emails**: Winner notification with order details
+- **Welcome Emails**: Onboarding emails for new artisans and customers
+- **Verification Status Emails**: Approval/rejection notifications for artisan verification
+
+### 🛡️ Artisan Verification
+
+- **Video Verification**: Artisans upload verification videos via Cloudinary
+- **Admin Review**: Admin dashboard to approve/reject verification requests
+- **Verified Badge**: Verified artisans get a trust badge on their profile and products
+- **Email Notifications**: Artisans receive email on approval or rejection with next steps
 
 ### ⚡ Real-Time Features
 
@@ -131,6 +150,9 @@ A full-stack e-commerce and community platform connecting traditional artisans w
 │  ├─ Google Generative AI (Gemini)                          │
 │  ├─ Clerk Authentication                                    │
 │  ├─ Supabase Storage (Images)                              │
+│  ├─ Cloudinary (Verification Videos)                       │
+│  ├─ Stripe (Payment Processing)                            │
+│  ├─ Brevo SMTP (Transactional Emails)                      │
 │  └─ Vercel Hosting & Edge Functions                        │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -140,8 +162,8 @@ A full-stack e-commerce and community platform connecting traditional artisans w
 **Product Purchase:**
 ```
 Customer → Browse Products → Add to Cart → Checkout → 
-Payment Processing → Order Creation → Artisan Notification → 
-Order Fulfillment → Delivery Tracking
+Stripe Payment → Webhook/Session Verification → Order Creation → 
+Email to Customer & Artisan → Order Fulfillment → Delivery Tracking
 ```
 
 **Auction Flow:**
@@ -194,6 +216,9 @@ Product Recommendations → Chat History Storage → Response Display
 | **Google Generative AI** | AI assistant and recommendations |
 | **Clerk** | Authentication and user management |
 | **Supabase** | Cloud storage for images |
+| **Cloudinary** | Verification video hosting |
+| **Stripe** | Payment gateway (Checkout Sessions) |
+| **Nodemailer + Brevo SMTP** | Transactional email notifications |
 | **node-cron** | Scheduled tasks (auction cleanup) |
 
 ### Development Tools
@@ -365,12 +390,14 @@ model Product {
 **Order Model**
 ```prisma
 model Order {
-  id         String      @id @default(cuid())
-  total      Float
-  status     String      @default("PENDING")
-  customerId String
-  createdAt  DateTime    @default(now())
-  items      OrderItem[]
+  id            String      @id @default(cuid())
+  total         Float
+  status        String      @default("PENDING")
+  paymentId     String?     @unique
+  paymentStatus String      @default("unpaid")  // unpaid, paid, failed, refunded
+  customerId    String
+  createdAt     DateTime    @default(now())
+  items         OrderItem[]
 }
 ```
 
@@ -590,6 +617,23 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9xxxxx
 
 # WebSocket Server
 NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+
+# Stripe Payment Gateway
+STRIPE_SECRET_KEY=sk_test_xxxxx
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+
+# Email (Brevo SMTP)
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=your-smtp-login@smtp-brevo.com
+SMTP_PASS=xsmtpsib-xxxxx
+EMAIL_FROM=your-verified-sender@gmail.com
+
+# Cloudinary (Verification Videos)
+CLOUDINARY_CLOUD_NAME=xxxxx
+CLOUDINARY_API_KEY=xxxxx
+CLOUDINARY_API_SECRET=xxxxx
 ```
 
 #### Initialize Database
@@ -753,6 +797,12 @@ vercel
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_SOCKET_URL`
+- `NEXT_PUBLIC_APP_URL` (e.g., `https://artisans-loom.vercel.app`)
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 
 ### Deploy WebSocket Server
 
@@ -870,12 +920,14 @@ Use AI Shopping Assistant:
 
 1. Click product card → **View Details**
 2. Review product information and images
-3. **Add to Cart** (or **Buy Now** for direct checkout)
+3. **Add to Cart**
 4. Proceed to **Checkout**
-5. Enter shipping address
-6. Review order summary
-7. **Place Order**
-8. Track order status from **Profile** → **Orders**
+5. Review order summary with shipping calculation
+6. Click **Pay with Stripe** → redirected to Stripe Checkout
+7. Enter card details (Test card: `4242 4242 4242 4242`)
+8. On success → redirected to confirmation page with order ID
+9. Order confirmation email sent to your inbox
+10. Track order status from **Profile** → **Orders**
 
 #### 4. Using AI Assistants
 
@@ -982,6 +1034,31 @@ Use cases:
 }
 ```
 **Response:** Audio file buffer
+
+### Payments
+
+**POST `/api/checkout`**
+- Creates a Stripe Checkout Session
+- Requires authentication (Clerk)
+- Body: `{ items: CartItem[], shipping: number }`
+- Returns: `{ url: string }` (Stripe hosted checkout URL)
+
+**POST `/api/webhooks/stripe`**
+- Handles `checkout.session.completed` event
+- Creates order, decrements stock, sends emails
+- Requires valid Stripe webhook signature
+
+**POST `/api/verify-session`**
+- Fallback verification after Stripe payment
+- Retrieves session from Stripe API, creates order if webhook missed it
+- Sends order confirmation emails to customer and artisan
+- Body: `{ sessionId: string }`
+
+### Verification
+
+**POST `/api/upload-verification`**
+- Uploads artisan verification video to Cloudinary
+- Returns video URL for admin review
 
 ## ⚡ Real-Time Features
 
@@ -1352,13 +1429,14 @@ This project is built and maintained by:
 - ✅ Craft atlas
 - ✅ Order management
 
-### Phase 2 (Q2 2026)
-- 🔲 Payment gateway integration (Razorpay/Stripe)
+### Phase 2 (Completed - Q1 2026)
+- ✅ Payment gateway integration (Stripe Checkout)
+- ✅ Transactional email notifications (Nodemailer + Brevo SMTP)
+- ✅ Artisan verification system (video upload via Cloudinary)
+- ✅ Multi-language support (translation API)
 - 🔲 Advanced analytics dashboard
 - 🔲 Mobile app (React Native)
-- 🔲 Multi-language support
 - 🔲 Push notifications
-- 🔲 Artisan verification system
 - 🔲 Wholesale/bulk order module
 
 ### Phase 3 (Q3-Q4 2026)
@@ -1402,7 +1480,7 @@ A: Currently, the platform is web-based and mobile-responsive. A native mobile a
 
 ### Q: How do artisans receive payments?
 
-A: Payment gateway integration (Razorpay/Stripe) is under development. Currently, the platform handles order coordination, with direct payment arrangements between artisans and customers.
+A: The platform uses **Stripe** for secure payment processing. Customers pay via Stripe Checkout (card payments). Orders are automatically created and confirmed upon successful payment, with email notifications sent to both the customer and artisan.
 
 ### Q: Can international customers purchase?
 
@@ -1418,7 +1496,7 @@ A: Yes. Chat history is stored per user and not shared. We follow privacy best p
 
 ### Q: Can I sell products if I'm not a registered artisan?
 
-A: You must register as an artisan during onboarding. We verify artisan credentials to maintain platform authenticity (verification system coming in Phase 2).
+A: You must register as an artisan during onboarding. Artisans can submit a verification video (uploaded via Cloudinary) for admin review. Verified artisans receive a trust badge on their profile and products.
 
 ### Q: What types of products can be sold?
 
