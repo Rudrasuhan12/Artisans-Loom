@@ -30,7 +30,8 @@ model User {
   profile         Profile?
   reviewsReceived Review[]      @relation("ReceivedReviews")
   reviewsWritten  Review[]      @relation("WrittenReviews")
-  stories         Story[]
+  stories          Story[]
+  checkoutSessions CheckoutSession[]
 }
 
 model Profile {
@@ -195,4 +196,15 @@ enum AuctionStatus {
   ACTIVE
   SOLD
   UNSOLD
+}
+
+model CheckoutSession {
+  id              String   @id @default(cuid())
+  userId          String
+  stripeSessionId String?  @unique
+  cartItems       Json
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  user            User     @relation(fields: [userId], references: [id])
 }

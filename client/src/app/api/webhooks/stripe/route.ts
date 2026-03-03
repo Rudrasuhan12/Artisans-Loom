@@ -39,20 +39,30 @@ export async function POST(req: NextRequest) {
 
     try {
       const userId = session.metadata?.userId;
-      const cartItemsStr = session.metadata?.cartItems;
+      const checkoutSessionId = session.metadata?.checkoutSessionId;
 
-      if (!userId || !cartItemsStr) {
+      if (!userId || !checkoutSessionId) {
         console.error("Missing metadata in Stripe session");
         return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
       }
 
-      const cartItems = JSON.parse(cartItemsStr);
-      const totalAmount = (session.amount_total || 0) / 100; // Convert from paise to rupees
+      // Load cart from DB (not from Stripe metadata)
+      const checkoutData = await prisma.checkoutSession.findUnique({
+        where: { id: checkoutSessionId },
+      });
+
+      if (!checkoutData || checkoutData.status === "completed") {
+        console.error("Checkout session not found or already completed");
+        return NextResponse.json({ error: "Invalid checkout session" }, { status: 400 });
+      }
+
+      const cartItems = checkoutData.cartItems as any[];
+      const totalAmount = (session.amount_total || 0) / 100;
 
       // Create the order in a transaction
       const order = await prisma.$transaction(
         async (tx) => {
-          // 1. Create the Order
+          //Create the Order
           const newOrder = await tx.order.create({
             data: {
               customerId: userId,
@@ -70,7 +80,7 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // 2. Decrease Stock & Increase Sales Count
+          // Decrease Stock & Increase Sales Count
           for (const item of cartItems) {
             await tx.product.update({
               where: { id: item.id },
@@ -81,6 +91,12 @@ export async function POST(req: NextRequest) {
             });
           }
 
+          //Mark checkout session as completed
+          await tx.checkoutSession.update({
+            where: { id: checkoutSessionId },
+            data: { status: "completed" },
+          });
+
           return newOrder;
         },
         { maxWait: 5000, timeout: 20000 }
@@ -88,7 +104,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`✅ Order ${order.id} created from Stripe payment ${session.payment_intent}`);
 
-      // 3. Send email notifications (must await on Vercel serverless!)
+      //Send email notifications (must await on Vercel serverless!)
       const orderWithDetails = await prisma.order.findUnique({
         where: { id: order.id },
         include: {

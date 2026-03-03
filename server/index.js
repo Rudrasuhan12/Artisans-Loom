@@ -1,14 +1,14 @@
 // server/index.js
-require('dotenv').config(); 
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const cron = require('node-cron');
 const { PrismaClient } = require('@prisma/client');
-const { Pool } = require('pg'); 
-const { PrismaPg } = require('@prisma/adapter-pg'); 
-const { GoogleGenAI } = require("@google/genai"); 
+const { Pool } = require('pg');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { GoogleGenAI } = require("@google/genai");
 const nodemailer = require('nodemailer');
 
 // Mandatory check for environment variables
@@ -21,15 +21,12 @@ if (!process.env.GEMINI_API_KEY) {
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// 1. Prisma 7 + PostgreSQL Driver Adapter Setup
-// This configuration is optimized for connection pooling on platforms like Render/Supabase
-const pool = new Pool({ 
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10, 
+  max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
@@ -37,10 +34,7 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// 2. AI Initialization (Using the latest Google AI SDK)
 const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
-
-// 3. Email Transporter (Brevo SMTP via Nodemailer)
 const emailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
   port: Number(process.env.SMTP_PORT) || 587,
@@ -95,24 +89,24 @@ async function sendServerEmail(to, subject, title, body) {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
-// --- ARTISAN SPOTLIGHT GENERATOR LOGIC ---
+//ARTISAN SPOTLIGHT GENERATOR LOGIC
 async function generateAutomatedStory() {
   console.log("Starting automated Artisan Spotlight generation...");
   try {
     // Select an artisan who hasn't been featured yet
     const eligibleArtisans = await prisma.user.findMany({
-      where: { 
+      where: {
         role: 'ARTISAN',
-        stories: { none: {} } 
+        stories: { none: {} }
       },
-      include: { 
+      include: {
         profile: true,
-        products: { take: 1 } 
+        products: { take: 1 }
       }
     });
 
@@ -124,11 +118,10 @@ async function generateAutomatedStory() {
     const artisan = eligibleArtisans[Math.floor(Math.random() * eligibleArtisans.length)];
     const prompt = `Write a beautiful 300-word spotlight for artisan ${artisan.name} who does ${artisan.profile?.craftType || 'traditional crafts'}. Return ONLY JSON with keys: "title", "excerpt", "content".`;
 
-    // Using gemini-1.5-flash for stable free-tier performance
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const result = await model.generateContent(prompt);
-    const responseText = result.response.text(); 
-    
+    const responseText = result.response.text();
+
     // Extract JSON from potential Markdown formatting
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("AI failed to return valid JSON.");
@@ -153,7 +146,6 @@ async function generateAutomatedStory() {
   }
 }
 
-// --- API ENDPOINTS ---
 
 // Manual Trigger for Testing
 app.get('/api/stories/trigger', async (req, res) => {
@@ -166,22 +158,22 @@ app.get('/api/stories', async (req, res) => {
   try {
     const stories = await prisma.story.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { 
+      include: {
         featuredArtisan: {
-          select: { 
-            id: true, 
-            name: true, 
-            profile: { select: { location: true } } 
+          select: {
+            id: true,
+            name: true,
+            profile: { select: { location: true } }
           }
-        } 
+        }
       }
     });
-    
-    // [FIX]: Crucial mapping to ensure IDs are accessible for redirection
+
+    //Crucial mapping to ensure IDs are accessible for redirection
     const responseData = stories.map(story => ({
       ...story,
       // Ensure featuredArtisanId is available at the top level
-      featuredArtisanId: story.featuredArtisan.id 
+      featuredArtisanId: story.featuredArtisan.id
     }));
 
     res.json(responseData);
@@ -191,18 +183,51 @@ app.get('/api/stories', async (req, res) => {
   }
 });
 
-// --- SOCKET.IO LOGIC ---
 io.on('connection', (socket) => {
   console.log(`User Connected: ${socket.id}`);
   socket.on('join_auction', (auctionId) => socket.join(auctionId));
-  
+
   socket.on('place_bid', async (data) => {
     const { auctionId, userId, amount } = data;
+    const bidAmount = parseFloat(amount);
+
     try {
-      const newBid = await prisma.bid.create({
-        data: { amount: parseFloat(amount), userId, auctionId },
-        include: { user: true }
-      });
+      //Fetch auction and validate
+      const auction = await prisma.auctionItem.findUnique({ where: { id: auctionId } });
+
+      if (!auction) {
+        return socket.emit('error', { message: 'Auction not found.' });
+      }
+      if (auction.status !== 'ACTIVE') {
+        return socket.emit('error', { message: 'This auction has already ended.' });
+      }
+      if (new Date() > auction.endTime) {
+        return socket.emit('error', { message: 'This auction has expired.' });
+      }
+      if (isNaN(bidAmount) || bidAmount <= 0) {
+        return socket.emit('error', { message: 'Invalid bid amount.' });
+      }
+
+      // Bid must exceed current highest bid AND base price
+      const minimumBid = Math.max(auction.currentBid, auction.basePrice);
+      if (bidAmount <= minimumBid) {
+        return socket.emit('error', {
+          message: `Bid must be greater than ₹${minimumBid.toLocaleString('en-IN')}`
+        });
+      }
+
+      //Create bid AND update currentBid atomically
+      const [newBid] = await prisma.$transaction([
+        prisma.bid.create({
+          data: { amount: bidAmount, userId, auctionId },
+          include: { user: true }
+        }),
+        prisma.auctionItem.update({
+          where: { id: auctionId },
+          data: { currentBid: bidAmount }
+        }),
+      ]);
+
       io.to(auctionId).emit('new_bid', {
         amount: newBid.amount,
         userName: newBid.user.name,
@@ -213,11 +238,11 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: "Could not place bid." });
     }
   });
-  
+
   socket.on('disconnect', () => console.log('User Disconnected'));
 });
 
-// --- CRON JOBS ---
+//CRON JOBS
 
 // Every minute: Close expired auctions & notify winners
 cron.schedule('* * * * *', async () => {
