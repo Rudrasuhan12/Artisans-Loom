@@ -59,10 +59,39 @@ export async function POST(req: NextRequest) {
       const cartItems = checkoutData.cartItems as any[];
       const totalAmount = (session.amount_total || 0) / 100;
 
+      //Prevent duplicate orders from repeated webhooks
+      const existingOrder = await prisma.order.findUnique({
+        where: { paymentId: session.payment_intent as string },
+      });
+      if (existingOrder) {
+        console.log(`⚠️ Duplicate webhook — order already exists for ${session.payment_intent}`);
+        return NextResponse.json({ received: true });
+      }
+
+      // Extract shipping/billing addresses from Stripe session
+      const shippingAddress = session.shipping_details?.address
+        ? { name: session.shipping_details.name, ...session.shipping_details.address }
+        : null;
+      const billingAddress = session.customer_details?.address
+        ? { name: session.customer_details.name, email: session.customer_details.email, ...session.customer_details.address }
+        : null;
+
       // Create the order in a transaction
       const order = await prisma.$transaction(
         async (tx) => {
-          //Create the Order
+          // Validate stock inside transaction (prevents negative stock)
+          for (const item of cartItems) {
+            const product = await tx.product.findUnique({
+              where: { id: item.id },
+              select: { id: true, title: true, stock: true },
+            });
+            if (!product) throw new Error(`Product ${item.id} not found`);
+            if (product.stock < item.quantity) {
+              throw new Error(`Insufficient stock for "${product.title}" (available: ${product.stock}, requested: ${item.quantity})`);
+            }
+          }
+
+          // Create the Order with addresses
           const newOrder = await tx.order.create({
             data: {
               customerId: userId,
@@ -70,6 +99,8 @@ export async function POST(req: NextRequest) {
               status: "Confirmed",
               paymentId: session.payment_intent as string,
               paymentStatus: "paid",
+              shippingAddress: shippingAddress as any,
+              billingAddress: billingAddress as any,
               items: {
                 create: cartItems.map((item: any) => ({
                   productId: item.id,
@@ -91,7 +122,7 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          //Mark checkout session as completed
+          // Mark checkout session as completed
           await tx.checkoutSession.update({
             where: { id: checkoutSessionId },
             data: { status: "completed" },
