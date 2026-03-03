@@ -130,6 +130,10 @@ export async function POST(req: NextRequest) {
       mode: "payment",
       customer_email: user.email,
       line_items: lineItems,
+      shipping_address_collection: {
+        allowed_countries: ["IN"],
+      },
+      billing_address_collection: "required",
       metadata: {
         userId: user.id,
         checkoutSessionId: checkoutSession.id,
