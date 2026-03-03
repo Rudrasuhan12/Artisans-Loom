@@ -1404,6 +1404,7 @@ This project is built and maintained by:
 - 🐛 **Report Bugs**: [Open an Issue](https://github.com/Sambit-Kumar-Mohanty-26/Artisans-Loom/issues)
 - 💡 **Feature Requests**: [Open a Discussion](https://github.com/Sambit-Kumar-Mohanty-26/Artisans-Loom/discussions)
 - 📧 **Email**: [sambitkumarmohanty25@gmail.com](mailto:sambitkumarmohanty25@gmail.com)
+- 📧 **Email**: [rudranarayanray62@gmail.com](mailto:rudranarayanray62@gmail.com)
 
 ## 🙏 Acknowledgments
 
