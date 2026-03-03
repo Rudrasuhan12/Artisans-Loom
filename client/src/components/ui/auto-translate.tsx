@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useHydratedLanguage } from "@/store/useLanguageStore";
 
 const translationCache: Record<string, string> = {};
 
 export default function AutoTranslate({ text, className }: { text: string, className?: string }) {
-  const { language } = useLanguageStore();
+  const language = useHydratedLanguage();
   const [display, setDisplay] = useState(text);
 
   useEffect(() => {

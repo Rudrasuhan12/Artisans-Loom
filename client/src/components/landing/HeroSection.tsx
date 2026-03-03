@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser, UserButton } from "@clerk/nextjs"; 
 import LanguageSwitcher from "@/components/ui/language-switcher";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useHydratedLanguage } from "@/store/useLanguageStore";
 import { useUserStore } from "@/store/useUserStore"; 
 import { translations } from "@/lib/translations"; 
 import { analyzeImageForSearch } from "@/app/actions/visual-search";
@@ -19,7 +19,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 export default function HeroSection() {
   const { isSignedIn } = useUser();
-  const { language } = useLanguageStore();
+  const language = useHydratedLanguage();
   const { role } = useUserStore();
   const router = useRouter();
   

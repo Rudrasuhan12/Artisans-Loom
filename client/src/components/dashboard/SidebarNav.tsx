@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useHydratedLanguage } from "@/store/useLanguageStore";
 import { translations } from "@/lib/translations";
 import { LayoutDashboard, ShoppingBag, BarChart3, Settings, Users, Home, Package, ShoppingCart } from "lucide-react";
 
 export default function SidebarNav({ role }: { role: string }) {
   const pathname = usePathname();
-  const { language } = useLanguageStore();
+  const language = useHydratedLanguage();
   const t = translations[language] || translations['en'];
 
   let links = [];

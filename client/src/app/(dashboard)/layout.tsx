@@ -17,13 +17,13 @@ import {
 import { usePathname } from "next/navigation";
 import UniversalBackButton from "@/components/ui/BackButton";
 import Image from "next/image";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useHydratedLanguage } from "@/store/useLanguageStore";
 import { useUserStore } from "@/store/useUserStore"; // [NEW] Access the role
 import { translations } from "@/lib/translations";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { language } = useLanguageStore();
+  const language = useHydratedLanguage();
   const { role } = useUserStore(); // [NEW] Retrieve user role
   
   const t = translations[language] || translations['en'];
