@@ -6,9 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShieldCheck, Truck, Loader2 } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Truck, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import { createOrderAction } from "@/app/actions/orders";
 import UniversalBackButton from "@/components/ui/BackButton";
 
 export default function CheckoutPage() {
@@ -29,14 +28,23 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      await createOrderAction(items, total);
-      clearCart();
-      toast.success("Payment Successful! Order Placed.");
-      router.push("/checkout/success");
-    } catch (error) {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, shipping }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error: any) {
       console.error(error);
-      toast.error("Payment failed. Please try again.");
-    } finally {
+      toast.error(error.message || "Payment failed. Please try again.");
       setLoading(false);
     }
   };
@@ -122,16 +130,22 @@ export default function CheckoutPage() {
                 {loading ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Processing...
+                    Redirecting to Payment...
                   </div>
                 ) : (
-                  "Proceed to Payment"
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Pay with Stripe
+                  </div>
                 )}
               </Button>
               
-              <p className="text-[10px] text-center text-[#8C7B70] mt-4 uppercase tracking-tighter">
-                By clicking, you agree to our Terms of Service
-              </p>
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <p className="text-[10px] text-[#8C7B70] uppercase tracking-wider">
+                  Secured by Stripe · 256-bit SSL Encryption
+                </p>
+              </div>
             </div>
           </div>
         </div>

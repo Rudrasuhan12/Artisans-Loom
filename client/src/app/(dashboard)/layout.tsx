@@ -10,7 +10,9 @@ import {
   Users, 
   Package,
   Home,
-  ShoppingCart
+  ShoppingCart,
+  ShieldCheck,
+  UserCog
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import UniversalBackButton from "@/components/ui/BackButton";
@@ -27,7 +29,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const t = translations[language] || translations['en'];
 
   // [FIXED]: Role-aware navigation links
-  const sidebarLinks = role === "ARTISAN" ? [
+  const sidebarLinks = role === "ADMIN" ? [
+    { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard },
+    { name: "Verification Requests", href: "/admin/verification", icon: ShieldCheck },
+    { name: "Manage Users", href: "/admin/users", icon: UserCog },
+    { name: t.analytics || "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    { name: t.settings || "Settings", href: "/admin/settings", icon: Settings },
+  ] : role === "ARTISAN" ? [
     { name: t.nav?.dashboard || "Dashboard", href: "/artisan", icon: LayoutDashboard },
     { name: "My Masterpieces", href: "/artisan/products", icon: ShoppingBag },
     { name: "My Purchases", href: "/artisan/orders", icon: Package },
@@ -86,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              <div className="flex flex-col">
                 <p className="font-medium text-sm text-[#FDFBF7]">{t.yourProfile || "My Profile"}</p>
                 <p className="text-xs text-[#8C7B70]">
-                   {role === "ARTISAN" ? "Artisan Account" : "Customer Account"}
+                   {role === "ADMIN" ? "Admin Account" : role === "ARTISAN" ? "Artisan Account" : "Customer Account"}
                 </p>
              </div>
           </div>

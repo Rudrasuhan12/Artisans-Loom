@@ -5,6 +5,7 @@ import RegionalMap from "@/components/landing/RegionalMap";
 import ArtisanSpotlight from "@/components/landing/ArtisanSpotlight";
 import ImpactSection from "@/components/landing/ImpactSection";
 import Footer from "@/components/landing/Footer";
+import CuratedForYou from "@/components/landing/CuratedForYou";
 import { prisma } from "@/lib/prisma"; //
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,7 @@ export default async function LandingPage() {
     <main className="min-h-screen bg-[#FDFBF7] flex flex-col">
       <HeroSection />
       <FeaturedSection products={randomProducts} />
-      
+      <CuratedForYou />
       <TrendingSection />
       <RegionalMap />
       <ArtisanSpotlight artisans={featuredArtisans} />

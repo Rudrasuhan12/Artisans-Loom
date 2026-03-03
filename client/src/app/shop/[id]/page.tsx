@@ -3,9 +3,12 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, ShieldCheck, Truck, RefreshCw } from "lucide-react";
+import { MapPin, ShieldCheck, Truck, RefreshCw, BadgeCheck } from "lucide-react";
 import AddToCartActions from "./AddToCartActions"; // [IMPORT THE NEW LOGIC]
 import BackButton from "@/components/ui/BackButton"; // [NEW] Add back button
+import SimilarProducts from "@/components/shop/SimilarProducts";
+import ARPreviewButton from "@/components/shop/ARPreviewButton";
+import CraftDNAButton from "@/components/shop/CraftDNAButton";
 
 // Helper function to fetch product data
 async function getProduct(id: string) {
@@ -69,9 +72,17 @@ export default async function ProductDetails({
               <h1 className="text-4xl lg:text-5xl font-serif font-bold text-[#4A3526] mb-2">
                 {product.title}
               </h1>
-              <div className="flex items-center gap-2 text-[#8C7B70] font-medium">
-                <MapPin className="w-4 h-4 text-[#D4AF37]" />
-                {product.artisan?.profile?.state || "India"}
+              <div className="flex items-center gap-4 text-[#8C7B70] font-medium">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#D4AF37]" />
+                  {product.artisan?.profile?.state || "India"}
+                </div>
+                {product.artisan?.profile?.isVerified && (
+                  <div className="flex items-center gap-1 text-emerald-600">
+                    <BadgeCheck className="w-4 h-4 fill-emerald-100" />
+                    <span className="text-xs font-bold">Verified Artisan</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -102,6 +113,23 @@ export default async function ProductDetails({
             {/* ACTION BUTTONS - Now Active via the Client Component */}
             <AddToCartActions product={product} />
 
+            {/* AR PREVIEW BUTTON */}
+            <div className="my-4">
+              <ARPreviewButton
+                productImage={product.images?.[0] || "/p1.png"}
+                productTitle={product.title}
+                category={product.category}
+              />
+            </div>
+
+            {/* CRAFT DNA / PRODUCT PASSPORT */}
+            <div className="mb-4">
+              <CraftDNAButton
+                productId={product.id}
+                productTitle={product.title}
+              />
+            </div>
+
             {/* TRUST BADGES */}
             <div className="grid grid-cols-3 gap-4 py-6 border-y border-[#E5DCCA]">
               <div className="flex flex-col items-center text-center gap-1">
@@ -126,10 +154,21 @@ export default async function ProductDetails({
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
             <div className="relative w-32 h-32 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-xl">
               <Image src="/avatar.png" alt="Artisan" fill className="object-cover" />
+              {product.artisan?.profile?.isVerified && (
+                <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1 border-2 border-white shadow-lg">
+                  <BadgeCheck className="w-5 h-5 text-white" />
+                </div>
+              )}
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl font-serif font-bold text-[#4A3526] mb-2">
+              <h2 className="text-2xl font-serif font-bold text-[#4A3526] mb-2 flex items-center gap-2 justify-center md:justify-start flex-wrap">
                 Meet the Maker: {product.artisan?.name || "Traditional Artisan"}
+                {product.artisan?.profile?.isVerified && (
+                  <span className="inline-flex items-center gap-1 text-sm font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    <BadgeCheck className="w-4 h-4" />
+                    Verified
+                  </span>
+                )}
               </h2>
               <p className="text-[#5D4037] max-w-2xl leading-relaxed">
                 {product.artisan?.profile?.bio || "Dedicated to preserving the ancient craft traditions of their region for over a decade."}
@@ -140,6 +179,13 @@ export default async function ProductDetails({
             </Button>
           </div>
         </div>
+
+        {/* SIMILAR PRODUCTS SECTION */}
+        <SimilarProducts 
+          productId={product.id}
+          currentCategory={product.category}
+          currentMaterials={product.materials || []}
+        />
       </div>
     </main>
   );

@@ -2,7 +2,10 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = global as unknown as {
+  prisma: PrismaClient;
+  pool: Pool;
+};
 
 const getPrisma = (): PrismaClient => {
   // Always check for DATABASE_URL first
@@ -12,8 +15,14 @@ const getPrisma = (): PrismaClient => {
 
   // Server-side initialization with Postgres Adapter
   if (typeof window === "undefined") {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const adapter = new PrismaPg(pool);
+    // Reuse pool across requests in production (prevents connection exhaustion on Vercel)
+    if (!globalForPrisma.pool) {
+      globalForPrisma.pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        max: 5, // Limit connections for serverless
+      });
+    }
+    const adapter = new PrismaPg(globalForPrisma.pool);
     return new PrismaClient({ adapter });
   }
 
@@ -22,6 +31,5 @@ const getPrisma = (): PrismaClient => {
 
 export const prisma = globalForPrisma.prisma || getPrisma();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Cache in all environments to prevent connection exhaustion
+globalForPrisma.prisma = prisma;

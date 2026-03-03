@@ -6,12 +6,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ShoppingCart, Filter, Search, MapPin, X, Check, ChevronDown, Camera } from "lucide-react";
+import { Loader2, ShoppingCart, Filter, Search, MapPin, X, Check, ChevronDown, Camera, BadgeCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import BackButton from "@/components/dashboard/BackButton";
 import AutoTranslate from "@/components/ui/auto-translate";
+import RecommendedTags from "@/components/shop/RecommendedTags";
 
 export const dynamic = 'force-dynamic';
 
@@ -183,6 +184,9 @@ function ShopContent() {
           </Button>
         </div>
 
+        {/* AI-Powered Recommended Tags */}
+        {!initialQuery && <RecommendedTags />}
+
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           
           <motion.aside 
@@ -268,6 +272,13 @@ function ShopContent() {
                         <div className="relative h-64 w-full overflow-hidden bg-[#F9F5F0]">
                           <Image src={product.images[0] || "/p1.png"} alt={product.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
                           <div className="absolute top-4 left-4"><Badge className="bg-white/90 backdrop-blur text-[#4A3526] border border-[#E5DCCA] shadow-sm hover:bg-white"><AutoTranslate text={product.category} /></Badge></div>
+                          {product.artisan?.profile?.isVerified && (
+                            <div className="absolute top-4 right-4">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#D4AF37] text-white text-[10px] font-bold rounded-full shadow-md">
+                                <BadgeCheck className="w-3 h-3" /> Verified
+                              </span>
+                            </div>
+                          )}
                           <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
 
@@ -280,6 +291,11 @@ function ShopContent() {
                             
                             <div className="flex items-center gap-1 text-xs text-[#8C7B70] mb-3">
                               <MapPin className="w-3 h-3 text-[#D4AF37]" /> {product.artisan?.profile?.state || "India"}
+                              {product.artisan?.profile?.isVerified && (
+                                <span className="ml-2 flex items-center gap-0.5 text-[#D4AF37]">
+                                  <BadgeCheck className="w-3 h-3" />
+                                </span>
+                              )}
                             </div>
                             
                             <p className="text-sm text-[#5D4037]/80 line-clamp-2 leading-relaxed"><AutoTranslate text={product.description} /></p>
