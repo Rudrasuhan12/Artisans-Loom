@@ -69,8 +69,9 @@ export async function POST(req: NextRequest) {
       }
 
       // Extract shipping/billing addresses from Stripe session
-      const shippingAddress = session.shipping_details?.address
-        ? { name: session.shipping_details.name, ...session.shipping_details.address }
+      const sessionWithDetails = session as any;
+      const shippingAddress = sessionWithDetails.shipping_details?.address
+        ? { name: sessionWithDetails.shipping_details.name, ...sessionWithDetails.shipping_details.address }
         : null;
       const billingAddress = session.customer_details?.address
         ? { name: session.customer_details.name, email: session.customer_details.email, ...session.customer_details.address }
@@ -92,24 +93,24 @@ export async function POST(req: NextRequest) {
           }
 
           // Create the Order with addresses
-          const newOrder = await tx.order.create({
-            data: {
-              customerId: userId,
-              total: totalAmount,
-              status: "Confirmed",
-              paymentId: session.payment_intent as string,
-              paymentStatus: "paid",
-              shippingAddress: shippingAddress as any,
-              billingAddress: billingAddress as any,
-              items: {
-                create: cartItems.map((item: any) => ({
-                  productId: item.id,
-                  quantity: item.quantity,
-                  price: item.price,
-                })),
-              },
+          const orderData: any = {
+            customerId: userId,
+            total: totalAmount,
+            status: "Confirmed",
+            paymentId: session.payment_intent as string,
+            paymentStatus: "paid",
+            items: {
+              create: cartItems.map((item: any) => ({
+                productId: item.id,
+                quantity: item.quantity,
+                price: item.price,
+              })),
             },
-          });
+          };
+          if (shippingAddress) orderData.shippingAddress = shippingAddress;
+          if (billingAddress) orderData.billingAddress = billingAddress;
+
+          const newOrder = await tx.order.create({ data: orderData });
 
           // Decrease Stock & Increase Sales Count
           for (const item of cartItems) {

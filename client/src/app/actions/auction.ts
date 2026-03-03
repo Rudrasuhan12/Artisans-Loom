@@ -58,6 +58,9 @@ export async function placeBidAction(auctionId: string, amount: number) {
 }
 
 export async function checkAndResolveAuctionAction(auctionId: string) {
+  // No auth required — this is a system-level task called from the public auction page
+  // to resolve expired auctions. It runs on page load for any visitor.
+
   const auction = await prisma.auctionItem.findUnique({
     where: { id: auctionId },
     include: { bids: { orderBy: { amount: 'desc' }, take: 1 }, product: true }
@@ -140,6 +143,14 @@ export async function startAuctionAction(formData: FormData) {
   const productId = formData.get("productId") as string;
   const basePrice = parseFloat(formData.get("basePrice") as string);
   const days = parseInt(formData.get("days") as string);
+
+  // Verify the user owns this product
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) throw new Error("User not found");
+
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new Error("Product not found");
+  if (product.artisanId !== user.id) throw new Error("You can only auction your own products");
 
   const existingAuction = await prisma.auctionItem.findUnique({
     where: { productId }

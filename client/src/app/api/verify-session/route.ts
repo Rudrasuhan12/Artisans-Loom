@@ -198,6 +198,15 @@ export async function POST(req: NextRequest) {
       alreadyProcessed: false,
     });
   } catch (error: any) {
+    // Handle race condition: webhook already created the order (unique constraint on paymentId)
+    if (error.code === "P2002" || error.message?.includes("Unique constraint")) {
+      console.log("Race condition: order already created by webhook");
+      return NextResponse.json({
+        success: true,
+        orderId: "already-processed",
+        alreadyProcessed: true,
+      });
+    }
     console.error("Verify session error:", error);
     return NextResponse.json(
       { error: error.message || "Verification failed" },

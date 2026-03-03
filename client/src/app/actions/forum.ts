@@ -91,7 +91,8 @@ export async function deletePostAction(postId: string) {
 
   const post = await prisma.forumPost.findUnique({ where: { id: postId } });
   
-  if (post && post.userId === dbUser.id) {
+  // Allow deletion by post owner OR admin
+  if (post && (post.userId === dbUser.id || dbUser.role === "ADMIN")) {
     await prisma.forumPost.delete({ where: { id: postId } });
     revalidatePath("/artisan/community");
   }

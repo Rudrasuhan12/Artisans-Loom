@@ -1,9 +1,13 @@
 "use server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { auth } from "@clerk/nextjs/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function getAuctionInsight(productName: string, category: string, basePrice: number) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const prompt = `

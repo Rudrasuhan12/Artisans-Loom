@@ -1,6 +1,7 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { auth } from "@clerk/nextjs/server";
 
 // Initialize the Gemini API with your key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -15,6 +16,9 @@ export async function generateMarketingCopy(data: {
   description?: string;
   language: string;
 }) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
   try {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY is missing in your .env.local file.");
@@ -75,6 +79,9 @@ export async function generateReelScript(data: {
   materials: string[];
   description: string;
 }) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
   try {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY is missing in your .env.local file.");

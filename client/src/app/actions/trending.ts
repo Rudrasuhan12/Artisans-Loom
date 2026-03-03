@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 export type TimeRange = "today" | "week" | "month" | "year" | "all";
 
 export async function getTrendingProducts(range: TimeRange = "week", limit: number = 10) {
+  // Cap limit to prevent excessive DB queries
+  const safeLimit = Math.min(Math.max(1, limit), 50);
+
   let startDate = new Date();
 
   switch (range) {
@@ -42,13 +45,13 @@ export async function getTrendingProducts(range: TimeRange = "week", limit: numb
         quantity: "desc",
       },
     },
-    take: limit,
+    take: safeLimit,
   });
 
   if (topSales.length === 0) {
     const fallbackProducts = await prisma.product.findMany({
       orderBy: { salesCount: "desc" },
-      take: limit,
+      take: safeLimit,
       include: { artisan: { include: { profile: true } } },
     });
     return fallbackProducts;

@@ -99,7 +99,7 @@ export async function createOrderAction(cartItems: any[], totalAmount: number) {
           quantity: i.quantity,
           price: i.price,
         })),
-        total: totalAmount,
+        total: verifiedTotal,
       });
 
       // Email to each artisan whose products were ordered

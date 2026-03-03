@@ -1,12 +1,16 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { auth } from "@clerk/nextjs/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export async function getGiftingSuggestions(city: string, occasion: string, type: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
   try {
     const prompt = `
       You are a Royal Indian Craft Concierge.
@@ -33,6 +37,9 @@ export async function getGiftingSuggestions(city: string, occasion: string, type
 }
 
 export async function getDecorSuggestions(room: string, vibe: string, color: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
   try {
     const prompt = `
       You are an Indian Interior Decorator specializing in Heritage Crafts.

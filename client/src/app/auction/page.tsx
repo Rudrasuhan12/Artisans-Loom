@@ -2,11 +2,28 @@ import { prisma } from "@/lib/prisma";
 import { Sparkles } from "lucide-react";
 import BackButton from "@/components/dashboard/BackButton";
 import AuctionTabs from "@/components/auction/AuctionTabs";
+import StartAuctionButton from "@/components/auction/StartAuctionButton";
 import { checkAndResolveAuctionAction } from "@/app/actions/auction";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = 'force-dynamic';
 
 export default async function AuctionPage() {
+  const { userId } = await auth();
+
+  // Check if current user is an artisan and fetch their products
+  let artisanProducts: any[] = [];
+  if (userId) {
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (user?.role === "ARTISAN") {
+      artisanProducts = await prisma.product.findMany({
+        where: { artisanId: user.id, stock: { gt: 0 } },
+        select: { id: true, title: true, price: true, images: true, stock: true, category: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+  }
+
   const activeAuctionsToCheck = await prisma.auctionItem.findMany({ where: { status: "ACTIVE" } });
   
   for (const auc of activeAuctionsToCheck) {
@@ -58,6 +75,12 @@ export default async function AuctionPage() {
            <p className="text-[#8C7B70] text-lg max-w-2xl mx-auto font-light leading-relaxed">
              Acquire exclusive, one-of-a-kind masterpieces crafted by India's legendary artisans.
            </p>
+
+           {artisanProducts.length > 0 && (
+             <div className="pt-4">
+               <StartAuctionButton products={artisanProducts} />
+             </div>
+           )}
         </div>
 
         <AuctionTabs 
