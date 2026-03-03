@@ -11,6 +11,12 @@ export async function onboardCustomerAction(formData: FormData) {
     throw new Error("Unauthorized");
   }
 
+  // Only allow onboarding for PENDING users
+  const existingUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (existingUser && existingUser.role !== "PENDING") {
+    throw new Error("Already onboarded");
+  }
+
   const profileData = {
     phoneNumber: formData.get("phoneNumber")?.toString(),
     streetAddress: formData.get("streetAddress")?.toString(),
@@ -54,6 +60,12 @@ export async function onboardArtisanAction(formData: FormData) {
   
   if (!userId) {
     throw new Error("Unauthorized");
+  }
+
+  // Only allow onboarding for PENDING users
+  const existingUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (existingUser && existingUser.role !== "PENDING") {
+    throw new Error("Already onboarded");
   }
 
   const profileData = {

@@ -23,6 +23,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    // Validate file type
+    const allowedTypes = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: "Invalid file type. Only MP4, WebM, MOV, and AVI videos are allowed." },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: "File too large. Maximum size is 50MB." },
+        { status: 400 }
+      );
+    }
+
     // Convert file to base64
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);

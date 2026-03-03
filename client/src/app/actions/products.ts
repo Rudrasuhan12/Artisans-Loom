@@ -13,6 +13,7 @@ export async function createProductAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) throw new Error("User not found");
+  if (user.role !== "ARTISAN") throw new Error("Only artisans can create products");
 
   await prisma.product.create({
     data: {
@@ -31,6 +32,18 @@ export async function createProductAction(formData: FormData) {
 }
 
 export async function deleteProductAction(productId: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) throw new Error("User not found");
+
+  // Verify the product belongs to this artisan
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product || product.artisanId !== user.id) {
+    throw new Error("Not authorized to delete this product");
+  }
+
   await prisma.product.delete({ where: { id: productId } });
   revalidatePath("/artisan/products");
 }
@@ -88,7 +101,17 @@ export async function updateProductAction(formData: FormData) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) throw new Error("User not found");
+
   const productId = formData.get("id") as string;
+
+  // Verify the product belongs to this artisan
+  const existingProduct = await prisma.product.findUnique({ where: { id: productId } });
+  if (!existingProduct || existingProduct.artisanId !== user.id) {
+    throw new Error("Not authorized to edit this product");
+  }
+
   const image = formData.get("image") as string;
 
   const data: any = {

@@ -13,6 +13,5 @@ function getStripe(): Stripe {
 
 export const stripe = globalForStripe.stripe || getStripe();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForStripe.stripe = stripe;
-}
+// Cache in all environments to avoid creating new instances per request
+globalForStripe.stripe = stripe;

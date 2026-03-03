@@ -19,6 +19,19 @@ export async function addReviewAction(formData: FormData) {
     throw new Error("You cannot review yourself.");
   }
 
+  // Validate rating range
+  if (isNaN(rating) || rating < 1 || rating > 5) {
+    throw new Error("Rating must be between 1 and 5");
+  }
+
+  // Prevent duplicate reviews
+  const existingReview = await prisma.review.findFirst({
+    where: { authorId: author.id, artisanId },
+  });
+  if (existingReview) {
+    throw new Error("You have already reviewed this artisan");
+  }
+
   await prisma.review.create({
     data: {
       rating,

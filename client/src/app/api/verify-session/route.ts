@@ -113,13 +113,37 @@ export async function POST(req: NextRequest) {
 
     // Webhook didn't create the order — do it now
     const userId = session.metadata?.userId;
-    const cartItemsStr = session.metadata?.cartItems;
+    const checkoutSessionId = session.metadata?.checkoutSessionId;
 
-    if (!userId || !cartItemsStr) {
+    if (!userId || !checkoutSessionId) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
 
-    const cartItems = JSON.parse(cartItemsStr);
+    // Load cart from DB (same as webhook)
+    const checkoutData = await prisma.checkoutSession.findUnique({
+      where: { id: checkoutSessionId },
+    });
+
+    if (!checkoutData) {
+      return NextResponse.json({ error: "Checkout session not found" }, { status: 400 });
+    }
+
+    if (checkoutData.status === "completed") {
+      // Already completed by webhook — just ensure emails are sent
+      const existingOrderBySession = await prisma.order.findFirst({
+        where: { customerId: userId, paymentId: paymentIntent },
+      });
+      if (existingOrderBySession) {
+        await sendOrderEmails(existingOrderBySession.id, existingOrderBySession.total);
+        return NextResponse.json({
+          success: true,
+          orderId: existingOrderBySession.id,
+          alreadyProcessed: true,
+        });
+      }
+    }
+
+    const cartItems = checkoutData.cartItems as any[];
     const totalAmount = (session.amount_total || 0) / 100;
 
     // Create order in transaction
@@ -151,6 +175,12 @@ export async function POST(req: NextRequest) {
             },
           });
         }
+
+        // Mark checkout session as completed
+        await tx.checkoutSession.update({
+          where: { id: checkoutSessionId },
+          data: { status: "completed" },
+        });
 
         return newOrder;
       },

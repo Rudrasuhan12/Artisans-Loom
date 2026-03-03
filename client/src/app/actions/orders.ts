@@ -13,22 +13,44 @@ export async function createOrderAction(cartItems: any[], totalAmount: number) {
   if (!user) throw new Error("User not found");
 
   try {
-    // --- FIX IS HERE ---
-    // Added { maxWait: 5000, timeout: 20000 } as the second argument
+    // Fetch real prices from DB to prevent client-side price tampering
+    const productIds = cartItems.map((item) => item.id);
+    const dbProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, title: true, price: true, stock: true },
+    });
+
+    const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+    // Validate all products exist and have sufficient stock
+    for (const item of cartItems) {
+      const dbProduct = productMap.get(item.id);
+      if (!dbProduct) throw new Error(`Product not found: ${item.id}`);
+      if (dbProduct.stock < item.quantity) {
+        throw new Error(`"${dbProduct.title}" only has ${dbProduct.stock} in stock`);
+      }
+    }
+
+    // Recalculate total from DB prices
+    const verifiedTotal = cartItems.reduce((sum, item) => {
+      const dbProduct = productMap.get(item.id)!;
+      return sum + dbProduct.price * item.quantity;
+    }, 0);
+
     const order = await prisma.$transaction(async (tx) => {
       
-      // 1. Create the Order
+      // 1. Create the Order with DB-verified prices
       const newOrder = await tx.order.create({
         data: {
           customerId: user.id,
-          total: totalAmount,
-          status: "Confirmed", // Initial status
-          paymentStatus: "unpaid", // Will be updated by Stripe webhook for online payments
+          total: verifiedTotal,
+          status: "Confirmed",
+          paymentStatus: "unpaid",
           items: {
             create: cartItems.map((item) => ({
               productId: item.id,
               quantity: item.quantity,
-              price: item.price
+              price: productMap.get(item.id)!.price, // Use DB price
             }))
           }
         }

@@ -21,7 +21,22 @@ if (!process.env.GEMINI_API_KEY) {
 
 const app = express();
 
-app.use(cors());
+// Restrict CORS to known origins
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  'http://localhost:3000',
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST'],
+}));
 app.use(express.json());
 
 const pool = new Pool({
@@ -89,7 +104,7 @@ async function sendServerEmail(to, subject, title, body) {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });
@@ -147,8 +162,11 @@ async function generateAutomatedStory() {
 }
 
 
-// Manual Trigger for Testing
+// Manual Trigger for Testing (protected — only in development)
 app.get('/api/stories/trigger', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
   const result = await generateAutomatedStory();
   res.send(result);
 });
@@ -192,6 +210,12 @@ io.on('connection', (socket) => {
     const bidAmount = parseFloat(amount);
 
     try {
+      // Verify user exists
+      const bidder = await prisma.user.findUnique({ where: { id: userId } });
+      if (!bidder) {
+        return socket.emit('error', { message: 'Invalid user.' });
+      }
+
       //Fetch auction and validate
       const auction = await prisma.auctionItem.findUnique({ where: { id: auctionId } });
 

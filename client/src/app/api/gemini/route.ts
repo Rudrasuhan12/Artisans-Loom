@@ -1,9 +1,20 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req: Request) {
   try {
-    const { productName, material, category, promptOverride } = await req.json();
+    // Require authentication to prevent abuse
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { productName, material, category } = await req.json();
+
+    if (!productName || !category) {
+      return NextResponse.json({ error: "Product name and category are required" }, { status: 400 });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -16,8 +27,8 @@ export async function POST(req: Request) {
       model: "gemini-2.5-flash" 
     });
 
-    const prompt = promptOverride || 
-      `Act as "Craft Mitra" for Artisans Loom. Generate a storytelling description for a ${productName} made of ${material} in the ${category} category. Include cultural significance.`;
+    // Use fixed prompt structure — no user-controlled promptOverride
+    const prompt = `Act as "Craft Mitra" for Artisans Loom. Generate a storytelling description for a ${productName} made of ${material || "traditional materials"} in the ${category} category. Include cultural significance. Max 50 words.`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
