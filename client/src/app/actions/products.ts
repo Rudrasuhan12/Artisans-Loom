@@ -38,13 +38,38 @@ export async function deleteProductAction(productId: string) {
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) throw new Error("User not found");
 
-  // Verify the product belongs to this artisan
+  // Verify the product belongs to this artisan OR user is admin
   const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product || product.artisanId !== user.id) {
+  if (!product) throw new Error("Product not found");
+
+  const isOwner = product.artisanId === user.id;
+  const isAdmin = user.role === "ADMIN";
+
+  if (!isOwner && !isAdmin) {
     throw new Error("Not authorized to delete this product");
   }
 
-  await prisma.product.delete({ where: { id: productId } });
+  // Cascade delete all related records in a transaction
+  await prisma.$transaction(async (tx) => {
+    // Delete bids on any auction for this product
+    await tx.bid.deleteMany({
+      where: { auction: { productId } },
+    });
+
+    // Delete auction items
+    await tx.auctionItem.deleteMany({
+      where: { productId },
+    });
+
+    // Delete order items referencing this product
+    await tx.orderItem.deleteMany({
+      where: { productId },
+    });
+
+    // Finally delete the product itself
+    await tx.product.delete({ where: { id: productId } });
+  });
+
   revalidatePath("/artisan/products");
 }
 
@@ -106,9 +131,10 @@ export async function updateProductAction(formData: FormData) {
 
   const productId = formData.get("id") as string;
 
-  // Verify the product belongs to this artisan
+  // Verify the product belongs to this artisan OR user is admin
   const existingProduct = await prisma.product.findUnique({ where: { id: productId } });
-  if (!existingProduct || existingProduct.artisanId !== user.id) {
+  if (!existingProduct) throw new Error("Product not found");
+  if (existingProduct.artisanId !== user.id && user.role !== "ADMIN") {
     throw new Error("Not authorized to edit this product");
   }
 

@@ -32,6 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const sidebarLinks = role === "ADMIN" ? [
     { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Verification Requests", href: "/admin/verification", icon: ShieldCheck },
+    { name: "Manage Products", href: "/admin/products", icon: ShoppingBag },
     { name: "Manage Users", href: "/admin/users", icon: UserCog },
     { name: t.analytics || "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: t.settings || "Settings", href: "/admin/settings", icon: Settings },
