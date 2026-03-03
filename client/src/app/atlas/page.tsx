@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import InteractiveMap from "@/components/landing/InteractiveMap";
 import { craftData } from "@/lib/craftData";
 import { Button } from "@/components/ui/button";
-import { Sparkles, MapPin, ArrowLeft, Loader2, ShoppingBag, Sparkle } from "lucide-react";
+import { Sparkles, MapPin, ArrowLeft, Loader2, ShoppingBag, Sparkle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { getCraftStory, getCraftMarketingCopy } from "@/app/actions/atlas";
+import { toast } from "sonner";
 
 export default function AtlasPage() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -14,51 +16,82 @@ export default function AtlasPage() {
   const [loadingStory, setLoadingStory] = useState(false);
   const [marketingCopies, setMarketingCopies] = useState<Record<string, string>>({});
   const [loadingCopy, setLoadingCopy] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
+
+  // Cache to avoid re-fetching the same data
+  const storyCache = useRef<Record<string, string>>({});
+  const copyCache = useRef<Record<string, string>>({});
 
   const stateInfo = selectedState ? craftData[selectedState] : null;
 
-  // Feature 1: AI Folk Tale Generator (from map.html generateStory)
+  // Feature 1: AI Folk Tale Generator — uses server action + cache
   const fetchAiStory = async (craftName: string) => {
+    if (loadingStory || !selectedState) return;
+    const cacheKey = `${selectedState}-${craftName}`;
+
+    // Return cached story instantly
+    if (storyCache.current[cacheKey]) {
+      setAiStory(storyCache.current[cacheKey]);
+      return;
+    }
+
+    if (rateLimited) {
+      toast.error("AI is rate-limited. Please wait a minute before trying again.");
+      return;
+    }
+
     setLoadingStory(true);
     setAiStory(null);
     try {
-      const response = await fetch("/api/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName: craftName,
-          material: "handcrafted traditions",
-          category: selectedState,
-          promptOverride: `Tell me a short, engaging folk tale or story (around 150 words) related to the traditional craft of ${craftName} from the region of ${selectedState}.`
-        }),
-      });
-      const data = await response.json();
-      setAiStory(data.text);
-    } catch (error) {
+      const result = await getCraftStory(craftName, selectedState);
+      if (result.error === "rate_limit") {
+        setRateLimited(true);
+        toast.error("Too many requests — please wait a minute and try again.");
+        setTimeout(() => setRateLimited(false), 60000);
+      } else if (result.error) {
+        setAiStory(result.error);
+      } else {
+        storyCache.current[cacheKey] = result.text!;
+        setAiStory(result.text);
+      }
+    } catch {
       setAiStory("The Craft Mitra is currently weaving new tales. Please try again.");
     } finally {
       setLoadingStory(false);
     }
   };
 
-  // Feature 2: AI Marketing Description (from map.html ✨ button)
+  // Feature 2: AI Marketing Description — uses server action + cache
   const fetchMarketingCopy = async (craftName: string, index: number) => {
+    if (!selectedState) return;
     const key = `${craftName}-${index}`;
+    const cacheKey = `${selectedState}-${key}`;
+
+    // Return cached copy instantly
+    if (copyCache.current[cacheKey]) {
+      setMarketingCopies(prev => ({ ...prev, [key]: copyCache.current[cacheKey] }));
+      return;
+    }
+
+    if (rateLimited) {
+      toast.error("AI is rate-limited. Please wait a minute before trying again.");
+      return;
+    }
+
     setLoadingCopy(key);
     try {
-      const response = await fetch("/api/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName: craftName,
-          material: "authentic materials",
-          category: selectedState,
-          promptOverride: `Write a vivid and evocative 2-sentence marketing description for a handmade ${craftName} from ${selectedState}, perfect for an e-commerce site.`
-        }),
-      });
-      const data = await response.json();
-      setMarketingCopies(prev => ({ ...prev, [key]: data.text }));
-    } catch (error) {
+      const result = await getCraftMarketingCopy(craftName, selectedState);
+      if (result.error === "rate_limit") {
+        setRateLimited(true);
+        toast.error("Too many requests — please wait a minute and try again.");
+        setTimeout(() => setRateLimited(false), 60000);
+      } else if (result.error) {
+        toast.error(result.error);
+      } else {
+        copyCache.current[cacheKey] = result.text!;
+        setMarketingCopies(prev => ({ ...prev, [key]: result.text! }));
+      }
+    } catch {
       console.error("Copy failed");
     } finally {
       setLoadingCopy(null);
@@ -96,6 +129,12 @@ export default function AtlasPage() {
         <div className="lg:col-span-5 flex flex-col h-full overflow-y-auto pr-2 custom-scrollbar pb-10">
           {stateInfo ? (
             <div className="bg-[#FFFBF5] p-8 rounded-3xl border border-[#E5DCCA] shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
+              {rateLimited && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-800 text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  AI is cooling down. Please wait a minute before requesting new stories.
+                </div>
+              )}
               <div className="inline-block px-3 py-1 bg-[#D4AF37]/10 text-[#D4AF37] rounded-full text-xs font-bold tracking-widest uppercase mb-3">
                 Current Region
               </div>
