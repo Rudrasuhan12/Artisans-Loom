@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true, // Crucial for Vercel production to trust the deployment domain
+  secret: process.env.AUTH_SECRET, // Explicitly pass the secret
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {
