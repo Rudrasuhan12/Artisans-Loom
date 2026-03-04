@@ -19,7 +19,7 @@ const getPrisma = (): PrismaClient => {
     if (!globalForPrisma.pool) {
       globalForPrisma.pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        max: 5, // Limit connections for serverless
+        max: 1, // Limit connections for serverless
       });
     }
     const adapter = new PrismaPg(globalForPrisma.pool);
