@@ -1,18 +1,18 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function addReviewAction(formData: FormData) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const artisanId = formData.get("artisanId") as string;
   const comment = formData.get("comment") as string;
   const rating = parseInt(formData.get("rating") as string);
 
-  const author = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const author = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!author) throw new Error("User not found");
 
   if (author.id === artisanId) {

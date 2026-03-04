@@ -1,14 +1,14 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import BackButton from "@/components/dashboard/BackButton";
 import ProfileUI from "@/components/artisan/ProfileUI"; 
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { userId } = await auth();
+  const session = await auth();
   const { id } = await params;
 
-  const currentUser = userId 
-    ? await prisma.user.findUnique({ where: { clerkId: userId } }) 
+  const currentUser = session?.user?.id 
+    ? await prisma.user.findUnique({ where: { id: session.user.id } }) 
     : null;
 
   const artisan = await prisma.user.findUnique({

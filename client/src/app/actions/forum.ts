@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -30,13 +30,13 @@ async function checkContentSafety(text: string): Promise<boolean> {
 }
 
 export async function createPostAction(formData: FormData) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const content = formData.get("content") as string;
   const parentId = formData.get("parentId") as string | null;
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!dbUser || !content) return;
 
   const isFlagged = await checkContentSafety(content);
@@ -64,10 +64,10 @@ if (!isFlagged) {
 }
 
 export async function editPostAction(postId: string, newContent: string) {
-  const { userId } = await auth();
-  if (!userId) return;
+  const session = await auth();
+  if (!session?.user?.id) return;
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
 
   const isFlagged = await checkContentSafety(newContent);
   
@@ -83,10 +83,10 @@ export async function editPostAction(postId: string, newContent: string) {
 }
 
 export async function deletePostAction(postId: string) {
-  const { userId } = await auth();
-  if (!userId) return;
+  const session = await auth();
+  if (!session?.user?.id) return;
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!dbUser) return;
 
   const post = await prisma.forumPost.findUnique({ where: { id: postId } });
@@ -99,10 +99,10 @@ export async function deletePostAction(postId: string) {
 }
 
 export async function toggleFollowAction(targetUserId: string) {
-  const { userId } = await auth();
-  if (!userId) return;
+  const session = await auth();
+  if (!session?.user?.id) return;
 
-  const currentUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!currentUser) return;
 
   const existingFollow = await prisma.follows.findUnique({
@@ -135,10 +135,10 @@ export async function toggleFollowAction(targetUserId: string) {
 }
 
 export async function toggleLikeAction(postId: string) {
-  const { userId } = await auth();
-  if (!userId) return;
+  const session = await auth();
+  if (!session?.user?.id) return;
 
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!dbUser) return;
 
   const existingLike = await prisma.forumLike.findUnique({

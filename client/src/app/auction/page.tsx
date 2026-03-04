@@ -4,17 +4,17 @@ import BackButton from "@/components/dashboard/BackButton";
 import AuctionTabs from "@/components/auction/AuctionTabs";
 import StartAuctionButton from "@/components/auction/StartAuctionButton";
 import { checkAndResolveAuctionAction } from "@/app/actions/auction";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 
 export const dynamic = 'force-dynamic';
 
 export default async function AuctionPage() {
-  const { userId } = await auth();
+  const session = await auth();
 
   // Check if current user is an artisan and fetch their products
   let artisanProducts: any[] = [];
-  if (userId) {
-    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
     if (user?.role === "ARTISAN") {
       artisanProducts = await prisma.product.findMany({
         where: { artisanId: user.id, stock: { gt: 0 } },

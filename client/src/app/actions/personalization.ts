@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -33,7 +33,7 @@ interface PersonalizedRecommendation {
  */
 async function aggregateUserHistory(userId: string): Promise<UserHistory | null> {
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where: { id: userId },
     include: {
       orders: {
         include: {
@@ -249,9 +249,9 @@ async function fetchPersonalizedProducts(recommendations: PersonalizedRecommenda
  * Main function: Get personalized product recommendations for the current user
  */
 export async function getPersonalizedRecommendations(limit: number = 8) {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     // For guest users, return trending/popular products
     const popularProducts = await prisma.product.findMany({
       orderBy: [{ salesCount: "desc" }, { views: "desc" }],
@@ -272,7 +272,7 @@ export async function getPersonalizedRecommendations(limit: number = 8) {
   }
 
   // Get user history
-  const history = await aggregateUserHistory(userId);
+  const history = await aggregateUserHistory(session.user.id);
 
   if (!history || (history.purchaseCategories.length === 0 && history.chatKeywords.length === 0)) {
     // User has no history, return popular products with a gentle prompt
@@ -295,7 +295,7 @@ export async function getPersonalizedRecommendations(limit: number = 8) {
   }
 
   // Get AI recommendations based on history
-  const recommendations = await getAIRecommendations(history, userId);
+  const recommendations = await getAIRecommendations(history, session.user.id);
 
   // Fetch products matching recommendations
   const products = await fetchPersonalizedProducts(recommendations, limit);
@@ -333,13 +333,13 @@ export async function getPersonalizedRecommendations(limit: number = 8) {
  * Get quick recommendations for Shop/Trending pages (lighter version)
  */
 export async function getQuickRecommendedTags(): Promise<string[]> {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return ["handcrafted", "traditional", "silk", "brass", "wooden"];
   }
 
-  const history = await aggregateUserHistory(userId);
+  const history = await aggregateUserHistory(session.user.id);
 
   if (!history || (history.purchaseCategories.length === 0 && history.chatKeywords.length === 0)) {
     return ["handcrafted", "traditional", "silk", "brass", "wooden"];
@@ -373,9 +373,9 @@ export async function getQuickRecommendedTags(): Promise<string[]> {
  * Falls back to standard recommendations if embeddings aren't set up
  */
 export async function getEnhancedRecommendations(limit: number = 8) {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     // For guest users, return trending/popular products
     const popularProducts = await prisma.product.findMany({
       orderBy: [{ salesCount: "desc" }, { views: "desc" }],
@@ -406,7 +406,7 @@ export async function getEnhancedRecommendations(limit: number = 8) {
   if (hasEmbeddings) {
     // Use semantic search for enhanced recommendations
     try {
-      const history = await aggregateUserHistory(userId);
+      const history = await aggregateUserHistory(session.user.id);
 
       if (history && (history.purchaseCategories.length > 0 || history.chatKeywords.length > 0)) {
         // Build semantic query from user history

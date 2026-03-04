@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import Image from "next/image";
 import { RoyalDivider } from "@/components/ui/royal-divider";
@@ -7,11 +7,11 @@ import { format } from "date-fns";
 import { Crown } from "lucide-react";
 
 export default async function MyOrdersPage() {
-  const { userId } = await auth();
-  if (!userId) return null;
+  const session = await auth();
+  if (!session?.user?.id) return null;
 
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     include: { 
       orders: { 
         include: { items: { include: { product: true } } },

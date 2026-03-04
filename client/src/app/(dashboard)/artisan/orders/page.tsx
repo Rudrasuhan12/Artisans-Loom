@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { Package, Calendar, ChevronRight, ShoppingBag } from "lucide-react";
@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
 
 export default async function ArtisanPurchaseHistory() {
-  const { userId: clerkId } = await auth();
-  if (!clerkId) redirect("/sign-in");
+  const session = await auth();
+  if (!session?.user?.id) redirect("/sign-in");
 
   // Fetch orders placed BY this artisan (acting as a customer)
   const orders = await prisma.order.findMany({
     where: {
       customer: {
-        clerkId: clerkId,
+        id: session.user.id,
       },
     },
     include: {

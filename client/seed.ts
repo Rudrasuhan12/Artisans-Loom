@@ -24,35 +24,30 @@ async function main() {
   // Expanded list of Artisans covering more regions
   const artisans = [
     {
-      clerkId: "user_odisha_01",
       email: "ramesh.mohap@example.com",
       name: "Ramesh Mohapatra",
       state: "Odisha",
       craft: "Pattachitra & Filigree"
     },
     {
-      clerkId: "user_rajasthan_01",
       email: "suresh.potter@example.com",
       name: "Suresh Sharma",
       state: "Rajasthan",
       craft: "Blue Pottery"
     },
     {
-      clerkId: "user_up_01",
       email: "ananya.silk@example.com",
       name: "Ananya Devi",
       state: "Uttar Pradesh",
       craft: "Banarasi Weaving"
     },
     {
-      clerkId: "user_bihar_01",
       email: "sita.art@example.com",
       name: "Sita Das",
       state: "Bihar",
       craft: "Madhubani Painting"
     },
     {
-      clerkId: "user_karnataka_01",
       email: "rk.bronze@example.com",
       name: "Ramesh Kulkarni",
       state: "Karnataka",
@@ -63,10 +58,9 @@ async function main() {
   for (const a of artisans) {
     // Create or find the Artisan
     const user = await prisma.user.upsert({
-      where: { clerkId: a.clerkId },
+      where: { email: a.email },
       update: {},
       create: {
-        clerkId: a.clerkId,
         email: a.email,
         name: a.name,
         role: "ARTISAN",

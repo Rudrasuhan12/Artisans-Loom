@@ -1,4 +1,4 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { IndianRupee, ShoppingBag, Clock, Package } from "lucide-react";
 import Link from "next/link";
@@ -7,13 +7,12 @@ import { getOrderStatus, STATUS_COLORS } from "@/utils/orderStatus";
 import { format } from "date-fns";
 
 export default async function CustomerDashboard() {
-  const { userId } = await auth();
-  const clerkUser = await currentUser();
+  const session = await auth();
 
-  if (!userId || !clerkUser) return null;
+  if (!session?.user?.id) return null;
 
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     include: { 
       orders: { 
         include: { items: { include: { product: true } } },
@@ -27,9 +26,7 @@ export default async function CustomerDashboard() {
   const totalSpent = user.orders.reduce((acc, order) => acc + order.total, 0);
   const totalOrders = user.orders.length;
   
-  const lastActiveDate = clerkUser.lastSignInAt 
-    ? format(new Date(clerkUser.lastSignInAt), "MMM dd, yyyy • h:mm a") 
-    : "Just now";
+  const lastActiveDate = format(new Date(), "MMM dd, yyyy • h:mm a");
 
   const activeOrders = user.orders.filter(order => {
     const { status } = getOrderStatus(order.createdAt);

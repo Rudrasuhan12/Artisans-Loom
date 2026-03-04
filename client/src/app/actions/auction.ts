@@ -2,14 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { sendOutbidAlert, sendAuctionWonEmail, sendArtisanNewOrderNotification } from "@/lib/email";
 
 export async function placeBidAction(auctionId: string, amount: number) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) throw new Error("User not found");
 
   const auction = await prisma.auctionItem.findUnique({ where: { id: auctionId } });
@@ -137,15 +137,15 @@ export async function checkAndResolveAuctionAction(auctionId: string) {
 }
 
 export async function startAuctionAction(formData: FormData) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const productId = formData.get("productId") as string;
   const basePrice = parseFloat(formData.get("basePrice") as string);
   const days = parseInt(formData.get("days") as string);
 
   // Verify the user owns this product
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) throw new Error("User not found");
 
   const product = await prisma.product.findUnique({ where: { id: productId } });

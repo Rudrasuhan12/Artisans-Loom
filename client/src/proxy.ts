@@ -1,20 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-
-const isProtectedRoute = createRouteMatcher([
-  '/artisan',
-  '/artisan/(.*)',
-  '/customer(.*)',
-  '/admin(.*)',
-  '/dashboard(.*)',
-  '/onboarding(.*)',
-  '/checkout(.*)',
-]);
-
-export const proxy = clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect(); 
-  }
-});
+export { auth as proxy } from "@/auth";
 
 export const config = {
   matcher: [

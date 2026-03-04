@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { syncUser } from "@/utils/auth-sync";
 import "./globals.css";
 import { LayoutClient } from "./layout-client";
 import CraftMitra from "@/components/mitra/CraftMitra";
 import { Toaster } from "@/components/ui/sonner";
 import CartDrawer from "@/components/cart/CartDrawer";
+import { SessionProvider } from "next-auth/react";
 
 export const dynamic = 'force-dynamic'; 
 
@@ -27,17 +26,10 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  try {
-    await syncUser();
-  } catch (error) {
-    console.error('Error in syncUser during layout rendering:', error);
-  }
-
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7]`}>
-                  
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7]`}>
+        <SessionProvider>
           {children}
           
           <LayoutClient />
@@ -46,8 +38,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <CraftMitra />
 
           <Toaster position="bottom-right" richColors closeButton />
-        </body>
-      </html>
-    </ClerkProvider>
+        </SessionProvider>
+      </body>
+    </html>
   );
 }

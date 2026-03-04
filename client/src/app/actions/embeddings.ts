@@ -245,7 +245,7 @@ export async function getSemanticRecommendations(
 ) {
   // Get user's order history
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where: { id: userId },
     include: {
       orders: {
         include: {

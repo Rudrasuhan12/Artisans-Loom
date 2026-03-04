@@ -1,13 +1,13 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function getAnalyticsData() {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const artisan = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const artisan = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!artisan) throw new Error("Artisan not found");
 
   const sales = await prisma.orderItem.findMany({

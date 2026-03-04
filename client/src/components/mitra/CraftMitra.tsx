@@ -5,7 +5,7 @@ import { Mic, X, Sparkles, Globe, Loader2, ShoppingCart, Package, Send, MessageS
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUser } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/useCartStore";
@@ -37,7 +37,7 @@ const QUICK_COMMANDS_HI = [
 ];
 
 export default function CraftMitra() {
-  const { user } = useUser();
+  const { data: session } = useSession();
   const router = useRouter();
   const addToCartStore = useCartStore((state) => state.addToCart);
   const cartItems = useCartStore((state) => state.items);
@@ -104,7 +104,7 @@ export default function CraftMitra() {
     if (!isOpen) {
       setIsOpen(true);
       setMode("voice");
-      const name = user?.firstName || "Traveler";
+      const name = session?.user?.name?.split(' ')[0] || "Traveler";
       const greeting = `Namaste ${name}, I am Mitra. How may I serve you? You can ask me to find products, add to cart, track orders, or shop by voice in Hindi or English!`;
       setReply(greeting);
       setChatHistory([{ role: "mitra", text: greeting }]);
@@ -126,7 +126,7 @@ export default function CraftMitra() {
     if (!isOpen) {
       setIsOpen(true);
       setMode("text");
-      const name = user?.firstName || "Traveler";
+      const name = session?.user?.name?.split(' ')[0] || "Traveler";
       const greeting = `Namaste ${name}! Type or use the quick commands below to start shopping. I understand Hindi and English!`;
       setReply(greeting);
       setChatHistory([{ role: "mitra", text: greeting }]);

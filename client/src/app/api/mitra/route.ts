@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { SITE_MAP } from "@/lib/site-map";
@@ -14,7 +14,8 @@ const cleanJSON = (text: string) => {
 export async function POST(req: Request) {
   try {
     const { message, history, visualContext, cartSummary } = await req.json();
-    const { userId } = await auth();
+    const session = await auth();
+    const userId = session?.user?.id;
 
     let userRole = "GUEST";
     let userName = "Traveler";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
 
     if (userId) {
       dbUser = await prisma.user.findUnique({ 
-        where: { clerkId: userId },
+        where: { id: userId },
         include: { 
           orders: { 
             include: { items: { include: { product: true } } }, 

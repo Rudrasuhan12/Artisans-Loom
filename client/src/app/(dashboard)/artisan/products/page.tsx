@@ -4,21 +4,21 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import ProductCard from "@/components/artisan/ProductCard";
 import { RoyalDivider } from "@/components/ui/royal-divider";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma"; //
 import { redirect } from "next/navigation";
 import BackButton from "@/components/ui/BackButton"; 
 
 export default async function ProductsPage() {
-  const { userId } = await auth();
+  const session = await auth();
   
   // --- Redirect if user is not logged in ---
-  if (!userId) {
+  if (!session?.user?.id) {
     redirect("/sign-in");
   }
   
   // 1. Fetch User profile safely
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   
   if (!user) return <div className="p-8 text-center text-red-500">User profile not found. Please contact support.</div>;
   

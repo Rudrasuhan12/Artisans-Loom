@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Send, Sparkles } from "lucide-react";
 import { createPostAction } from "@/app/actions/forum";
@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 export default async function CommunityPage() {
-  const { userId } = await auth();
+  const session = await auth();
   
-  const currentUser = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
+  const currentUser = session?.user?.id ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
   const currentDbUserId = currentUser?.id || "";
 
   const userInclude = { include: { profile: true } };

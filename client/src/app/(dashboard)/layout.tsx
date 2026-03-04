@@ -1,6 +1,9 @@
-"use client";
 
-import { UserButton } from "@clerk/nextjs";
+"use client";
+import React from "react";
+
+import { signOut, useSession } from "next-auth/react";
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { 
   LayoutDashboard, 
@@ -24,8 +27,33 @@ import { translations } from "@/lib/translations";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const language = useHydratedLanguage();
-  const { role } = useUserStore(); // [NEW] Retrieve user role
-  
+  const { role, setRole } = useUserStore();
+  const { data: session } = useSession();
+
+  // Debug log for session and role
+  console.log('DashboardLayout session:', session);
+  console.log('DashboardLayout role:', role);
+
+  // Sync Zustand role with session role
+  // Sync Zustand role with session role and force session refresh
+  React.useEffect(() => {
+    if (session?.user && (session.user as any).role) {
+      setRole((session.user as any).role);
+    } else {
+      setRole("");
+    }
+  }, [session, setRole]);
+
+  // Force session refresh on mount and after signOut
+  const { update } = useSession();
+  React.useEffect(() => {
+    update();
+  }, []);
+
+  const userName = session?.user?.name || "User";
+  const userEmail = session?.user?.email || "";
+  const userInitial = userName.charAt(0).toUpperCase();
+
   const t = translations[language] || translations['en'];
 
   // [FIXED]: Role-aware navigation links
@@ -91,14 +119,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="mt-auto p-4 border-t border-[#D4AF37]/20 bg-black/20">
           <div className="flex items-center gap-3">
-             <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "w-10 h-10" } }} />
-             <div className="flex flex-col">
-                <p className="font-medium text-sm text-[#FDFBF7]">{t.yourProfile || "My Profile"}</p>
-                <p className="text-xs text-[#8C7B70]">
-                   {role === "ADMIN" ? "Admin Account" : role === "ARTISAN" ? "Artisan Account" : "Customer Account"}
-                </p>
+             <div className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#2C1810] font-bold text-lg shrink-0">
+               {userInitial}
+             </div>
+             <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-[#FDFBF7] truncate">{userName}</p>
+                <p className="text-xs text-[#8C7B70] truncate">{userEmail}</p>
              </div>
           </div>
+          <button
+            onClick={async () => {
+              setRole("");
+              await signOut({ callbackUrl: "/sign-in", redirect: true });
+              update();
+            }}
+            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-[#E5DCCA]/80 hover:bg-[#3E2A1C] hover:text-white border border-[#D4AF37]/10 transition-all duration-200"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
         </div>
       </aside>
 

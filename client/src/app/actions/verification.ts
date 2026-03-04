@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -8,15 +8,15 @@ import { revalidatePath } from "next/cache";
  * Submit a verification video URL for review
  */
 export async function submitVerificationVideo(videoUrl: string) {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { id: session.user.id },
       include: { profile: true },
     });
 
@@ -52,15 +52,15 @@ export async function submitVerificationVideo(videoUrl: string) {
  * Get all pending verification requests (Admin only)
  */
 export async function getPendingVerifications() {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return { success: false, error: "Unauthorized", data: [] };
   }
 
   try {
     const admin = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { id: session.user.id },
     });
 
     if (!admin || admin.role !== "ADMIN") {
@@ -103,15 +103,15 @@ export async function reviewVerification(
   action: "approve" | "reject",
   note?: string
 ) {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
 
   try {
     const admin = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { id: session.user.id },
     });
 
     if (!admin || admin.role !== "ADMIN") {
@@ -174,15 +174,15 @@ export async function reviewVerification(
  * Get current user's verification status
  */
 export async function getVerificationStatus() {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return null;
   }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { id: session.user.id },
       include: { profile: true },
     });
 
@@ -206,15 +206,15 @@ export async function getVerificationStatus() {
  * Get all artisans with their verification status (Admin only)
  */
 export async function getAllArtisansVerificationStatus() {
-  const { userId } = await auth();
+  const session = await auth();
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return { success: false, error: "Unauthorized", data: [] };
   }
 
   try {
     const admin = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { id: session.user.id },
     });
 
     if (!admin || admin.role !== "ADMIN") {

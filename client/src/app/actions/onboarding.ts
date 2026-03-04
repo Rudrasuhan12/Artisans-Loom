@@ -1,18 +1,18 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
 export async function onboardCustomerAction(formData: FormData) {
-  const { userId } = await auth();
+  const session = await auth();
   
-  if (!userId) {
+  if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
   // Only allow onboarding for PENDING users
-  const existingUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const existingUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (existingUser && existingUser.role !== "PENDING") {
     throw new Error("Already onboarded");
   }
@@ -31,7 +31,7 @@ export async function onboardCustomerAction(formData: FormData) {
   };
 
   const updatedUser = await prisma.user.update({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     data: {
       role: "CUSTOMER",
       preferences: preferences,
@@ -56,14 +56,14 @@ export async function onboardCustomerAction(formData: FormData) {
 }
 
 export async function onboardArtisanAction(formData: FormData) {
-  const { userId } = await auth();
+  const session = await auth();
   
-  if (!userId) {
+  if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
   // Only allow onboarding for PENDING users
-  const existingUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+  const existingUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (existingUser && existingUser.role !== "PENDING") {
     throw new Error("Already onboarded");
   }
@@ -77,7 +77,7 @@ export async function onboardArtisanAction(formData: FormData) {
   };
 
   const updatedUser = await prisma.user.update({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     data: {
       role: "ARTISAN",
       profile: {

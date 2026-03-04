@@ -3,12 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Camera, Gift, Heart, Menu, Mic, ShoppingBag, Search, Loader2, X } from "lucide-react";
+import { ArrowRight, Camera, Gift, Heart, Menu, Mic, ShoppingBag, Search, Loader2, X, LogOut, Mail } from "lucide-react";
 import Image from "next/image";
 import { RoyalDivider } from "@/components/ui/royal-divider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUser, UserButton } from "@clerk/nextjs"; 
+import { useSession, signOut } from "next-auth/react"; 
 import LanguageSwitcher from "@/components/ui/language-switcher";
 import { useHydratedLanguage } from "@/store/useLanguageStore";
 import { useUserStore } from "@/store/useUserStore"; 
@@ -18,7 +18,8 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function HeroSection() {
-  const { isSignedIn } = useUser();
+  const { data: session, status } = useSession();
+  const isSignedIn = status === "authenticated";
   const language = useHydratedLanguage();
   const { role } = useUserStore();
   const router = useRouter();
@@ -35,11 +36,24 @@ export default function HeroSection() {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   
   const recognitionRef = useRef<any>(null);
   const queryRef = useRef(""); 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -161,8 +175,42 @@ export default function HeroSection() {
                      {t.nav.dashboard || "Dashboard"}
                   </Button>
                 </Link>
-                <div className="relative w-10 h-10 rounded-full border-2 border-[#D4AF37] p-px flex items-center justify-center bg-white overflow-hidden">
-                   <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "w-full h-full" } }} />
+                <div className="relative" ref={profileRef}>
+                  <button
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className="relative w-10 h-10 rounded-full border-2 border-[#D4AF37] flex items-center justify-center bg-[#2C1810] text-white text-sm font-bold hover:bg-[#4A3526] transition-colors overflow-hidden"
+                    title={session?.user?.name || "Profile"}
+                  >
+                    {session?.user?.name?.[0]?.toUpperCase() || "U"}
+                  </button>
+
+                  {isProfileOpen && (
+                    <div className="absolute right-0 top-12 w-72 bg-white rounded-xl shadow-2xl border border-[#E5DCCA] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="px-4 py-4 bg-gradient-to-r from-[#2C1810] to-[#4A3526]">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#2C1810] font-bold text-lg shrink-0">
+                            {session?.user?.name?.[0]?.toUpperCase() || "U"}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm text-white truncate">{session?.user?.name || "User"}</p>
+                            <p className="text-xs text-[#E5DCCA]/70 truncate flex items-center gap-1">
+                              <Mail className="w-3 h-3 shrink-0" />
+                              {session?.user?.email || ""}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-2">
+                        <button
+                          onClick={() => { setIsProfileOpen(false); signOut({ callbackUrl: "/" }); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

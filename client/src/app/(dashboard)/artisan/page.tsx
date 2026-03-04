@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Package, IndianRupee, ShoppingBag } from "lucide-react";
 import { RoyalDivider } from "@/components/ui/royal-divider";
@@ -7,11 +7,11 @@ import { formatDistanceToNow } from "date-fns";
 import OracleInsightWidget from "@/components/artisan/OracleInsightWidget"; 
 
 export default async function ArtisanDashboardPage() {
-  const { userId } = await auth();
-  if (!userId) return null;
+  const session = await auth();
+  if (!session?.user?.id) return null;
 
   const artisan = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     include: { profile: true }
   });
 

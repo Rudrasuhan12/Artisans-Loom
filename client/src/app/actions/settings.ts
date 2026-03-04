@@ -1,19 +1,19 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function updateArtisanProfile(formData: FormData) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const businessName = formData.get("businessName") as string;
   const bio = formData.get("bio") as string;
   const location = formData.get("location") as string;
 
   await prisma.user.update({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     data: {
       profile: {
         update: {
@@ -29,8 +29,8 @@ export async function updateArtisanProfile(formData: FormData) {
 }
 
 export async function updateCustomerProfile(formData: FormData) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const data = {
     phoneNumber: formData.get("phoneNumber")?.toString(),
@@ -41,7 +41,7 @@ export async function updateCustomerProfile(formData: FormData) {
   };
 
   await prisma.user.update({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
     data: {
       profile: {
         update: data

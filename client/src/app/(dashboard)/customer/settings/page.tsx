@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,9 @@ import { updateCustomerProfile } from "@/app/actions/settings";
 import { RoyalDivider } from "@/components/ui/royal-divider";
 
 export default async function CustomerSettings() {
-  const { userId } = await auth();
+  const session = await auth();
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId! },
+    where: { id: session!.user!.id! },
     include: { profile: true }
   });
 
