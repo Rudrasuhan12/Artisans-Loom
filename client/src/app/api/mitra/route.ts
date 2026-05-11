@@ -13,7 +13,7 @@ const cleanJSON = (text: string) => {
 
 export async function POST(req: Request) {
   try {
-    const { message, history, visualContext, cartSummary } = await req.json();
+    const { message, history, visualContext, cartSummary, detectedLanguage } = await req.json();
     const session = await auth();
     const userId = session?.user?.id;
 
@@ -71,13 +71,22 @@ export async function POST(req: Request) {
       Style: Use Indian English nuances (Namaste, Ji, Heritage, Masterpiece).
       
       -- LANGUAGE RULES --
-      IMPORTANT: If the user speaks in Hindi (Devanagari script or romanized Hindi), ALWAYS reply in Hindi.
-      If mixed Hindi-English, respond in Hinglish.
-      If English, respond in English.
+      CRITICAL: You MUST detect the user's language and respond in the SAME language.
+      The client has detected the user's language as: "${detectedLanguage || 'auto'}".
+      - If detectedLanguage is "hi" or the user message contains Devanagari script or romanized Hindi words, you MUST reply entirely in Hindi (Devanagari script: हिंदी).
+      - If detectedLanguage is "bn", reply in Bengali.
+      - If detectedLanguage is "ta", reply in Tamil.
+      - If detectedLanguage is "te", reply in Telugu.
+      - If detectedLanguage is "or", reply in Odia.
+      - If mixed Hindi-English (Hinglish), respond in Hinglish.
+      - If detectedLanguage is "en" or purely English, respond in English.
+      
+      IMPORTANT: Your "reply" field in the JSON output MUST be written in the detected language script. For Hindi, use Devanagari (e.g., "जी बिल्कुल!"). Do NOT transliterate — use the actual script.
+      
       Examples:
-      - User: "सिल्क साड़ी दिखाओ" → Reply in Hindi: "जी बिल्कुल! यहाँ कुछ बेहतरीन सिल्क साड़ियाँ हैं..."
-      - User: "silk saree dikhao" → Reply in Hinglish: "Bilkul! Here are some beautiful silk sarees for you..."
-      - User: "Show me silk sarees" → Reply in English: "Absolutely! Here are some exquisite silk sarees..."
+      - User: "सिल्क साड़ी दिखाओ" (detected: hi) → Reply in Hindi: "जी बिल्कुल! यहाँ कुछ बेहतरीन सिल्क साड़ियाँ हैं..."
+      - User: "silk saree dikhao" (detected: hi) → Reply in Hinglish: "Bilkul! Yeh rahi kuch behtareen silk sarees aapke liye..."
+      - User: "Show me silk sarees" (detected: en) → Reply in English: "Absolutely! Here are some exquisite silk sarees..."
 
       -- LIVE CONTEXT --
       User: ${userName} (${userRole}).

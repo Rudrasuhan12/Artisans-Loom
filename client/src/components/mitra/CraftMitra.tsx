@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Mic, X, Sparkles, Globe, Loader2, ShoppingCart, Package, Send, MessageSquare, Volume2, VolumeX, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Mic, X, Sparkles, Globe, Loader2, ShoppingCart, Package, Send, MessageSquare, Volume2, VolumeX, Trash2, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -36,6 +37,57 @@ const QUICK_COMMANDS_HI = [
   { label: "💰 ₹2000 से कम", cmd: "2000 रुपये से कम के प्रोडक्ट्स दिखाओ" },
 ];
 
+// Smart voice selection — prioritized human-like voices per language
+const VOICE_PREFERENCES: Record<string, string[]> = {
+  en: ["Microsoft Heera", "Microsoft Zira", "Google UK English Female", "Samantha", "Google US English", "Karen"],
+  hi: ["Microsoft Swara", "Google \u0939\u093f\u0928\u094d\u0926\u0940", "Lekha", "Hindi"],
+  bn: ["Google \u09AC\u09BE\u0982\u09B2\u09BE", "Bangla"],
+  or: ["Google Odia", "Odia"],
+  ta: ["Google \u0BA4\u0BAE\u0BBF\u0BB4\u0BCD", "Tamil"],
+  te: ["Google \u0C24\u0C46\u0C32\u0C41\u0C17\u0C41", "Telugu"],
+};
+
+function getBestVoice(lang: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const prefs = VOICE_PREFERENCES[lang] || VOICE_PREFERENCES.en;
+  for (const pref of prefs) {
+    const match = voices.find(v => v.name.includes(pref));
+    if (match) return match;
+  }
+  // Fallback: find any voice for the language
+  const langVoice = voices.find(v => v.lang.startsWith(lang));
+  if (langVoice) return langVoice;
+  return null;
+}
+
+// Auto-detect language from text using Unicode script ranges + romanized Hindi patterns
+function detectLanguageFromText(text: string): string {
+  const devanagari = (text.match(/[\u0900-\u097F]/g) || []).length;
+  const bengali = (text.match(/[\u0980-\u09FF]/g) || []).length;
+  const odia = (text.match(/[\u0B00-\u0B7F]/g) || []).length;
+  const tamil = (text.match(/[\u0B80-\u0BFF]/g) || []).length;
+  const telugu = (text.match(/[\u0C00-\u0C7F]/g) || []).length;
+  const latin = (text.match(/[a-zA-Z]/g) || []).length;
+
+  // Pick whichever script has the most characters
+  const scores: [string, number][] = [
+    ['hi', devanagari],
+    ['bn', bengali],
+    ['or', odia],
+    ['ta', tamil],
+    ['te', telugu],
+  ];
+  const best = scores.reduce((a, b) => b[1] > a[1] ? b : a);
+  if (best[1] > 2) return best[0]; // Non-Latin script detected
+
+  // Check for romanized Hindi/Hinglish patterns
+  if (latin > 0) {
+    const hindiPatterns = /\b(kya|hai|mujhe|dikhao|chahiye|kaise|kahan|mera|kitna|acha|nahi|haan|ji|bhai|dedo|batao|karo|lao|bhejo|saree|sari|kurta|dupatta|lehenga|dhoti|pagdi|jaipur|varanasi|lucknow|banaras)\b/i;
+    if (hindiPatterns.test(text)) return 'hi';
+  }
+
+  return 'en';
+}
+
 export default function CraftMitra() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -49,8 +101,10 @@ export default function CraftMitra() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
   const [textInput, setTextInput] = useState("");
   const [reply, setReply] = useState("");
   const [language, setLanguage] = useState("auto");
@@ -65,22 +119,54 @@ export default function CraftMitra() {
   const audioQueueRef = useRef<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const voiceCacheRef = useRef<Record<string, SpeechSynthesisVoice | null>>({});
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasBrowserTTSRef = useRef(false);
+  const detectedLangRef = useRef<string>('en');
+  const speakCancelledRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
 
       recognition.onresult = (event: any) => {
-        const currentTranscript = event.results[0][0].transcript;
-        setTranscript(currentTranscript);
-        transcriptRef.current = currentTranscript;
+        let interim = "";
+        let final = "";
+        for (let i = 0; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            final += t;
+          } else {
+            interim += t;
+          }
+        }
+        if (final) {
+          setTranscript(final);
+          transcriptRef.current = final;
+          setInterimTranscript("");
+          // Auto-detect language from what the user said
+          const detected = detectLanguageFromText(final);
+          detectedLangRef.current = detected;
+        } else {
+          setInterimTranscript(interim);
+        }
+        // Reset silence timer on every speech result
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          // 2s of silence after speech → auto-submit
+          if (transcriptRef.current.trim().length > 1) {
+            recognition.stop();
+          }
+        }, 2000);
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        setInterimTranscript("");
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         if (transcriptRef.current.trim().length > 1) {
           handleSend(transcriptRef.current);
         }
@@ -89,16 +175,42 @@ export default function CraftMitra() {
     }
   }, []);
 
+  // Cache browser voices for human-like TTS
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    hasBrowserTTSRef.current = true;
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length === 0) return;
+      for (const lang of Object.keys(VOICE_PREFERENCES)) {
+        voiceCacheRef.current[lang] = getBestVoice(lang, voices);
+      }
+    };
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, visualData]);
 
   const toggleListening = () => {
+    // Guest gate — require login
+    if (!session?.user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioQueueRef.current = [];
       setIsSpeaking(false);
+    }
+    // Also stop browser TTS
+    if (hasBrowserTTSRef.current) {
+      speakCancelledRef.current = true;
+      speechSynthesis.cancel();
     }
 
     if (!isOpen) {
@@ -116,6 +228,7 @@ export default function CraftMitra() {
       recognitionRef.current?.stop();
     } else {
       setTranscript("");
+      setInterimTranscript("");
       transcriptRef.current = "";
       recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language; 
       try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
@@ -123,6 +236,12 @@ export default function CraftMitra() {
   };
 
   const openTextMode = () => {
+    // Guest gate — require login
+    if (!session?.user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
     if (!isOpen) {
       setIsOpen(true);
       setMode("text");
@@ -139,6 +258,8 @@ export default function CraftMitra() {
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!textInput.trim()) return;
+    // Detect language from typed input
+    detectedLangRef.current = detectLanguageFromText(textInput.trim());
     handleSend(textInput.trim());
     setTextInput("");
   };
@@ -217,7 +338,12 @@ export default function CraftMitra() {
       const response = await fetch('/api/mitra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: apiHistory, cartSummary: cartItems.length > 0 ? `Cart: ${cartItems.length} items, ₹${cartItems.reduce((s, i) => s + i.price * i.quantity, 0)}` : "Cart: empty" }) 
+        body: JSON.stringify({
+          message: text,
+          history: apiHistory,
+          detectedLanguage: detectedLangRef.current,
+          cartSummary: cartItems.length > 0 ? `Cart: ${cartItems.length} items, ₹${cartItems.reduce((s, i) => s + i.price * i.quantity, 0)}` : "Cart: empty"
+        }) 
       });
 
       const data = await response.json();
@@ -279,44 +405,108 @@ export default function CraftMitra() {
 
   const speak = async (text: string) => {
     if (audioRef.current) audioRef.current.pause();
+    if (hasBrowserTTSRef.current) speechSynthesis.cancel();
+    speakCancelledRef.current = false;
     setIsSpeaking(true);
 
-    let targetLang = language === 'auto' ? 'en' : language.split('-')[0];
-    if (language === 'auto') {
-      if (/[\u0900-\u097F]/.test(text)) targetLang = 'hi'; 
-      else if (/[\u0980-\u09FF]/.test(text)) targetLang = 'bn'; 
-      else if (/[\u0B00-\u0B7F]/.test(text)) targetLang = 'or'; 
-      else if (/[\u0B80-\u0BFF]/.test(text)) targetLang = 'ta'; 
-      else if (/[\u0C00-\u0C7F]/.test(text)) targetLang = 'te'; 
+    // Use the detected language from user's input as the primary signal
+    let targetLang = detectedLangRef.current;
+    // If user manually selected a language (not auto), honor that
+    if (language !== 'auto') {
+      targetLang = language.split('-')[0];
     }
-    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
-    audioQueueRef.current = sentences;
-    playQueue(targetLang);
-  };
 
-  const playQueue = async (lang: string) => {
-    if (audioQueueRef.current.length === 0) {
-      setIsSpeaking(false);
-      return;
-    }
-    const nextSentence = audioQueueRef.current.shift();
-    if (!nextSentence) return;
-
+    // Primary: Edge Neural TTS (server) — human-like quality
+    // Send full text for natural pacing instead of sentence-by-sentence
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: nextSentence, lang }),
+        body: JSON.stringify({ text, lang: targetLang }),
       });
       const { url } = await response.json();
-      if (url) {
+      if (url && !speakCancelledRef.current) {
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => playQueue(lang);
-        audio.play();
-      } else { playQueue(lang); }
-    } catch (e) { playQueue(lang); }
+        audio.onended = () => {
+          setIsSpeaking(false);
+          // Auto-listen after Mitra finishes speaking
+          if (mode === "voice" && isOpen && !isMuted && !speakCancelledRef.current) {
+            setTimeout(() => {
+              setTranscript("");
+              setInterimTranscript("");
+              transcriptRef.current = "";
+              if (recognitionRef.current) {
+                recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language;
+                try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
+              }
+            }, 600);
+          }
+        };
+        audio.onerror = () => {
+          // If audio playback fails, try browser TTS fallback
+          speakBrowserFallback(text, targetLang);
+        };
+        audio.play().catch(() => speakBrowserFallback(text, targetLang));
+        return;
+      }
+    } catch (e) {
+      // Server TTS failed — fall through to browser fallback
+    }
+
+    // Fallback: browser-native SpeechSynthesis
+    speakBrowserFallback(text, targetLang);
   };
+
+  const speakBrowserFallback = (text: string, targetLang: string) => {
+    if (speakCancelledRef.current) {
+      setIsSpeaking(false);
+      return;
+    }
+    const cachedVoice = voiceCacheRef.current[targetLang];
+    if (hasBrowserTTSRef.current && cachedVoice) {
+      const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+      speakBrowserQueue(sentences, cachedVoice, targetLang);
+    } else {
+      setIsSpeaking(false);
+    }
+  };
+
+  const speakBrowserQueue = (sentences: string[], voice: SpeechSynthesisVoice, lang: string) => {
+    // Stop if speech was cancelled (close/mute)
+    if (speakCancelledRef.current) {
+      setIsSpeaking(false);
+      return;
+    }
+    if (sentences.length === 0) {
+      setIsSpeaking(false);
+      if (mode === "voice" && isOpen && !isMuted) {
+        setTimeout(() => {
+          setTranscript("");
+          setInterimTranscript("");
+          transcriptRef.current = "";
+          if (recognitionRef.current) {
+            recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language;
+            try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
+          }
+        }, 600);
+      }
+      return;
+    }
+    const next = sentences.shift()!;
+    const utterance = new SpeechSynthesisUtterance(next.trim());
+    utterance.voice = voice;
+    utterance.lang = lang;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.05;
+    utterance.volume = 1;
+    utterance.onend = () => speakBrowserQueue(sentences, voice, lang);
+    utterance.onerror = () => {
+      if (!speakCancelledRef.current) speakBrowserQueue(sentences, voice, lang);
+    };
+    speechSynthesis.speak(utterance);
+  };
+
 
   const handleAddToCart = (product: any) => {
     addToCartStore({
@@ -347,7 +537,7 @@ export default function CraftMitra() {
     <>
       {/* ── FLOATING ACTION BUTTON ── */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2">
+        <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-center gap-2">
           {/* Text chat mini button */}
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
@@ -423,8 +613,10 @@ export default function CraftMitra() {
                 <button
                   onClick={() => {
                     setIsMuted(!isMuted);
-                    if (!isMuted && audioRef.current) {
-                      audioRef.current.pause();
+                    if (!isMuted) {
+                      if (audioRef.current) audioRef.current.pause();
+                      speakCancelledRef.current = true;
+                      if (hasBrowserTTSRef.current) speechSynthesis.cancel();
                       audioQueueRef.current = [];
                       setIsSpeaking(false);
                     }
@@ -451,8 +643,13 @@ export default function CraftMitra() {
                 <button
                   onClick={() => {
                     setIsOpen(false);
+                    speakCancelledRef.current = true;
                     if (audioRef.current) audioRef.current.pause();
+                    if (hasBrowserTTSRef.current) speechSynthesis.cancel();
+                    if (recognitionRef.current && isListening) recognitionRef.current.stop();
+                    audioQueueRef.current = [];
                     setIsSpeaking(false);
+                    setIsListening(false);
                   }}
                   className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all cursor-pointer ml-1"
                   aria-label="Close"
@@ -731,9 +928,10 @@ export default function CraftMitra() {
 
                   {/* Transcript + Reply */}
                   <div className="w-full max-w-2xl flex flex-col items-center gap-3 px-4 text-center">
-                    {transcript && (
-                      <p className="text-xl sm:text-2xl text-[#D4AF37] font-medium leading-tight">
-                        {transcript}
+                    {(transcript || interimTranscript) && (
+                      <p className="text-xl sm:text-2xl font-medium leading-tight">
+                        {transcript && <span className="text-[#D4AF37]">{transcript}</span>}
+                        {interimTranscript && <span className="text-white/30 italic">{interimTranscript}</span>}
                       </p>
                     )}
                     {isProcessing ? (
@@ -840,6 +1038,57 @@ export default function CraftMitra() {
                 )}
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── GUEST LOGIN PROMPT ── */}
+      <AnimatePresence>
+        {showLoginPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowLoginPrompt(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-gradient-to-br from-[#1A1D2E] to-[#2F334F] rounded-3xl p-8 max-w-sm w-full border-2 border-[#D4AF37]/40 shadow-2xl text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Golden orb icon */}
+              <div className="mx-auto mb-5 w-20 h-20 rounded-full bg-gradient-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] flex items-center justify-center shadow-lg shadow-[#D4AF37]/30">
+                <Sparkles className="w-9 h-9 text-[#2F334F]" />
+              </div>
+
+              <h3 className="text-xl font-bold text-[#F3E5AB] font-serif mb-2">
+                Namaste, Traveler!
+              </h3>
+              <p className="text-sm text-[#E5DCCA]/70 leading-relaxed mb-6">
+                To access <span className="text-[#D4AF37] font-semibold">Craft Mitra</span> — your personal AI shopping concierge — please sign in first.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Link
+                  href="/sign-in"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#D4AF37] text-[#1A1D2E] font-bold text-sm hover:bg-[#b8962e] transition-colors shadow-lg"
+                  onClick={() => setShowLoginPrompt(false)}
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </Link>
+                <button
+                  onClick={() => setShowLoginPrompt(false)}
+                  className="w-full py-2.5 rounded-xl text-white/40 hover:text-white/70 text-sm transition-colors cursor-pointer"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
