@@ -59,7 +59,7 @@ function getBestVoice(lang: string, voices: SpeechSynthesisVoice[]): SpeechSynth
   return null;
 }
 
-// Auto-detect language from text using Unicode script ranges + romanized Hindi patterns
+// Auto-detect language from text using Unicode script ranges + romanized patterns
 function detectLanguageFromText(text: string): string {
   const devanagari = (text.match(/[\u0900-\u097F]/g) || []).length;
   const bengali = (text.match(/[\u0980-\u09FF]/g) || []).length;
@@ -79,10 +79,28 @@ function detectLanguageFromText(text: string): string {
   const best = scores.reduce((a, b) => b[1] > a[1] ? b : a);
   if (best[1] > 2) return best[0]; // Non-Latin script detected
 
-  // Check for romanized Hindi/Hinglish patterns
+  // Check for romanized patterns
   if (latin > 0) {
-    const hindiPatterns = /\b(kya|hai|mujhe|dikhao|chahiye|kaise|kahan|mera|kitna|acha|nahi|haan|ji|bhai|dedo|batao|karo|lao|bhejo|saree|sari|kurta|dupatta|lehenga|dhoti|pagdi|jaipur|varanasi|lucknow|banaras)\b/i;
-    if (hindiPatterns.test(text)) return 'hi';
+    const lower = text.toLowerCase();
+    // Odia patterns (check FIRST — Odia words overlap with Hindi)
+    const odiaPatterns = /\b(makte|kuwa|kana|kemiti|achchhi|kichhi|boli|sete|ame|tume|achhi|hela|kariba|kiniba|bhala|kete|dama|paisa|mote|tote|emiti|nahi re|haan re|dekha|mu|mora|kaha|kahaku)\b/i;
+    if (odiaPatterns.test(lower)) return 'or';
+
+    // Hindi patterns
+    const hindiPatterns = /\b(kya|mujhe|chahiye|kaise|kahan|kitna|nahi|haan|bhai|dedo|batao|bhejo|saree|sari|kurta|dupatta|lehenga|dhoti|pagdi|jaipur|varanasi|lucknow|banaras)\b/i;
+    if (hindiPatterns.test(lower)) return 'hi';
+
+    // Bengali patterns
+    const bengaliPatterns = /\b(amake|kemon|bhalo|ache|chai|dekhao|kori|bolchi|jani)\b/i;
+    if (bengaliPatterns.test(lower)) return 'bn';
+
+    // Tamil patterns
+    const tamilPatterns = /\b(enna|irukku|kaatu|venum|epdi|nalla|sollu|paru|vaanga)\b/i;
+    if (tamilPatterns.test(lower)) return 'ta';
+
+    // Telugu patterns
+    const teluguPatterns = /\b(enti|undi|chupinchu|kavali|ela|baaga|cheppandi|randi)\b/i;
+    if (teluguPatterns.test(lower)) return 'te';
   }
 
   return 'en';
@@ -124,6 +142,19 @@ export default function CraftMitra() {
   const hasBrowserTTSRef = useRef(false);
   const detectedLangRef = useRef<string>('en');
   const speakCancelledRef = useRef(false);
+  const recognitionLangRef = useRef<string>('en-IN');
+  const langSwitchingRef = useRef(false);
+
+  // Map detected language code to SpeechRecognition BCP-47 locale
+  const LANG_TO_RECOGNITION: Record<string, string> = {
+    'en': 'en-IN',
+    'hi': 'hi-IN',
+    'or': 'or-IN',
+    'bn': 'bn-IN',
+    'ta': 'ta-IN',
+    'te': 'te-IN',
+    'mr': 'mr-IN',
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -143,16 +174,50 @@ export default function CraftMitra() {
             interim += t;
           }
         }
+
+        // Real-time language detection from interim results (JARVIS-like)
+        const textToAnalyze = interim || final;
+        if (textToAnalyze && language === 'auto' && !langSwitchingRef.current) {
+          const detected = detectLanguageFromText(textToAnalyze);
+          const targetRecogLang = LANG_TO_RECOGNITION[detected] || 'en-IN';
+          
+          // If we detected a different language, restart recognition with correct language
+          if (detected !== 'en' && targetRecogLang !== recognitionLangRef.current) {
+            langSwitchingRef.current = true;
+            detectedLangRef.current = detected;
+            recognitionLangRef.current = targetRecogLang;
+            // Save any accumulated text before restart
+            const savedText = transcriptRef.current;
+            try {
+              recognition.stop();
+              // Restart with new language after brief pause
+              setTimeout(() => {
+                setTranscript("");
+                setInterimTranscript("");
+                transcriptRef.current = savedText; // Preserve context
+                recognition.lang = targetRecogLang;
+                try { 
+                  recognition.start(); 
+                  setIsListening(true);
+                  langSwitchingRef.current = false;
+                } catch(e) { langSwitchingRef.current = false; }
+              }, 150);
+            } catch(e) { langSwitchingRef.current = false; }
+            return;
+          }
+        }
+
         if (final) {
           setTranscript(final);
           transcriptRef.current = final;
           setInterimTranscript("");
-          // Auto-detect language from what the user said
+          // Final language detection
           const detected = detectLanguageFromText(final);
           detectedLangRef.current = detected;
         } else {
           setInterimTranscript(interim);
         }
+
         // Reset silence timer on every speech result
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
@@ -167,6 +232,8 @@ export default function CraftMitra() {
         setIsListening(false);
         setInterimTranscript("");
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        // Don't submit if we're just switching languages
+        if (langSwitchingRef.current) return;
         if (transcriptRef.current.trim().length > 1) {
           handleSend(transcriptRef.current);
         }
@@ -230,7 +297,13 @@ export default function CraftMitra() {
       setTranscript("");
       setInterimTranscript("");
       transcriptRef.current = "";
-      recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language; 
+      langSwitchingRef.current = false;
+      // Use detected language for recognition, or default to en-IN
+      const recogLang = language === 'auto' 
+        ? (LANG_TO_RECOGNITION[detectedLangRef.current] || 'en-IN')
+        : language;
+      recognitionLangRef.current = recogLang;
+      recognitionRef.current.lang = recogLang; 
       try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
     }
   };
@@ -348,6 +421,10 @@ export default function CraftMitra() {
 
       const data = await response.json();
       setReply(data.text);
+      // Use Gemini's detected language for TTS (most accurate)
+      if (data.responseLanguage) {
+        detectedLangRef.current = data.responseLanguage;
+      }
       if (!isMuted) await speak(data.text);
 
       if (data.action === "ADD_TO_CART") {
@@ -416,17 +493,27 @@ export default function CraftMitra() {
       targetLang = language.split('-')[0];
     }
 
+    console.log(`[Mitra TTS] Speaking: lang=${targetLang}, textLen=${text.length}, first50="${text.substring(0, 50)}"`);
+
     // Primary: Edge Neural TTS (server) — human-like quality
-    // Send full text for natural pacing instead of sentence-by-sentence
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, lang: targetLang }),
       });
-      const { url } = await response.json();
-      if (url && !speakCancelledRef.current) {
-        const audio = new Audio(url);
+
+      if (!response.ok) {
+        console.error(`[Mitra TTS] Server error: ${response.status}`);
+        speakBrowserFallback(text, targetLang);
+        return;
+      }
+
+      const data = await response.json();
+      console.log(`[Mitra TTS] Server response: url=${data.url ? `${data.url.length} chars` : 'null'}, error=${data.error || 'none'}`);
+
+      if (data.url && !speakCancelledRef.current) {
+        const audio = new Audio(data.url);
         audioRef.current = audio;
         audio.onended = () => {
           setIsSpeaking(false);
@@ -437,21 +524,27 @@ export default function CraftMitra() {
               setInterimTranscript("");
               transcriptRef.current = "";
               if (recognitionRef.current) {
-                recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language;
+                recognitionRef.current.lang = language === 'auto' ? (LANG_TO_RECOGNITION[detectedLangRef.current] || 'en-IN') : language;
                 try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
               }
             }, 600);
           }
         };
-        audio.onerror = () => {
-          // If audio playback fails, try browser TTS fallback
+        audio.onerror = (e) => {
+          console.error(`[Mitra TTS] Audio playback error:`, e);
           speakBrowserFallback(text, targetLang);
         };
-        audio.play().catch(() => speakBrowserFallback(text, targetLang));
+        audio.play().catch((e) => {
+          console.error(`[Mitra TTS] Audio play() rejected:`, e);
+          speakBrowserFallback(text, targetLang);
+        });
         return;
       }
+
+      // url was null — server couldn't generate audio
+      console.warn(`[Mitra TTS] Server returned null URL, trying browser fallback`);
     } catch (e) {
-      // Server TTS failed — fall through to browser fallback
+      console.error(`[Mitra TTS] Fetch error:`, e);
     }
 
     // Fallback: browser-native SpeechSynthesis
@@ -463,10 +556,17 @@ export default function CraftMitra() {
       setIsSpeaking(false);
       return;
     }
-    const cachedVoice = voiceCacheRef.current[targetLang];
-    if (hasBrowserTTSRef.current && cachedVoice) {
+    // Try target language, then similar languages, then any available
+    const fallbackChain = [targetLang, 'hi', 'en'];
+    let voice: SpeechSynthesisVoice | null = null;
+    let usedLang = targetLang;
+    for (const lang of fallbackChain) {
+      voice = voiceCacheRef.current[lang] || null;
+      if (voice) { usedLang = lang; break; }
+    }
+    if (hasBrowserTTSRef.current && voice) {
       const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
-      speakBrowserQueue(sentences, cachedVoice, targetLang);
+      speakBrowserQueue(sentences, voice, usedLang);
     } else {
       setIsSpeaking(false);
     }
@@ -486,7 +586,7 @@ export default function CraftMitra() {
           setInterimTranscript("");
           transcriptRef.current = "";
           if (recognitionRef.current) {
-            recognitionRef.current.lang = language === 'auto' ? 'en-IN' : language;
+            recognitionRef.current.lang = language === 'auto' ? (LANG_TO_RECOGNITION[detectedLangRef.current] || 'en-IN') : language;
             try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
           }
         }, 600);
@@ -979,7 +1079,10 @@ export default function CraftMitra() {
                   <SelectContent className="bg-[#2F334F] border-[#D4AF37]/30 text-white z-[200]">
                     <SelectItem value="auto">Auto Detect</SelectItem>
                     <SelectItem value="hi-IN">हिंदी</SelectItem>
+                    <SelectItem value="or-IN">ଓଡ଼ିଆ</SelectItem>
                     <SelectItem value="bn-IN">বাংলা</SelectItem>
+                    <SelectItem value="ta-IN">தமிழ்</SelectItem>
+                    <SelectItem value="te-IN">తెలుగు</SelectItem>
                     <SelectItem value="en-IN">English</SelectItem>
                   </SelectContent>
                 </Select>
