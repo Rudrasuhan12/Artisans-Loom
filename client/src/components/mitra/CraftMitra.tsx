@@ -144,6 +144,9 @@ export default function CraftMitra() {
   const speakCancelledRef = useRef(false);
   const recognitionLangRef = useRef<string>('en-IN');
   const langSwitchingRef = useRef(false);
+  const modeRef = useRef<"voice" | "text">("voice");
+  const isMutedRef = useRef(false);
+  const isOpenRef = useRef(false);
 
   // Map detected language code to SpeechRecognition BCP-47 locale
   const LANG_TO_RECOGNITION: Record<string, string> = {
@@ -262,6 +265,22 @@ export default function CraftMitra() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, visualData]);
 
+  useEffect(() => {
+    modeRef.current = mode;
+    isMutedRef.current = isMuted;
+    isOpenRef.current = isOpen;
+  }, [mode, isMuted, isOpen]);
+
+  const stopSpeech = () => {
+    if (audioRef.current) audioRef.current.pause();
+    audioQueueRef.current = [];
+    speakCancelledRef.current = true;
+    setIsSpeaking(false);
+    if (hasBrowserTTSRef.current) speechSynthesis.cancel();
+  };
+
+  const shouldSpeak = () => modeRef.current === "voice" && !isMutedRef.current;
+
   const toggleListening = () => {
     // Guest gate — require login
     if (!session?.user) {
@@ -269,25 +288,18 @@ export default function CraftMitra() {
       return;
     }
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioQueueRef.current = [];
-      setIsSpeaking(false);
-    }
-    // Also stop browser TTS
-    if (hasBrowserTTSRef.current) {
-      speakCancelledRef.current = true;
-      speechSynthesis.cancel();
-    }
+    stopSpeech();
 
     if (!isOpen) {
       setIsOpen(true);
+      isOpenRef.current = true;
+      modeRef.current = "voice";
       setMode("voice");
       const name = session?.user?.name?.split(' ')[0] || "Traveler";
       const greeting = `Namaste ${name}, I am Mitra. How may I serve you? You can ask me to find products, add to cart, track orders, or shop by voice in Hindi or English!`;
       setReply(greeting);
       setChatHistory([{ role: "mitra", text: greeting }]);
-      if (!isMuted) speak(greeting);
+      if (shouldSpeak()) speak(greeting);
       return;
     }
 
@@ -317,14 +329,19 @@ export default function CraftMitra() {
 
     if (!isOpen) {
       setIsOpen(true);
+      isOpenRef.current = true;
+      modeRef.current = "text";
       setMode("text");
+      stopSpeech();
       const name = session?.user?.name?.split(' ')[0] || "Traveler";
       const greeting = `Namaste ${name}! Type or use the quick commands below to start shopping. I understand Hindi and English!`;
       setReply(greeting);
       setChatHistory([{ role: "mitra", text: greeting }]);
       return;
     }
+    modeRef.current = "text";
     setMode("text");
+    stopSpeech();
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
@@ -350,7 +367,7 @@ export default function CraftMitra() {
         setChatHistory(prev => [...prev, { role: "user", text }, { role: "mitra", text: msg }]);
         setVisualData(null);
         setVisualType(null);
-        if (!isMuted) speak(msg);
+        if (shouldSpeak()) speak(msg);
       } else {
         const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
         const msg = language === "hi-IN" 
@@ -360,7 +377,7 @@ export default function CraftMitra() {
         setVisualType("CART");
         setVisualData(cartItems);
         setChatHistory(prev => [...prev, { role: "user", text }, { role: "mitra", text: msg, visualType: "CART", visualData: cartItems }]);
-        if (!isMuted) speak(msg);
+        if (shouldSpeak()) speak(msg);
       }
       setIsProcessing(false);
       return true;
@@ -374,7 +391,7 @@ export default function CraftMitra() {
       setVisualData(null);
       setVisualType(null);
       setChatHistory(prev => [...prev, { role: "user", text }, { role: "mitra", text: msg }]);
-      if (!isMuted) speak(msg);
+      if (shouldSpeak()) speak(msg);
       toast.success("Cart cleared!");
       setIsProcessing(false);
       return true;
@@ -385,8 +402,8 @@ export default function CraftMitra() {
       const msg = language === "hi-IN" ? "आपको चेकआउट पर ले जा रहा हूं।" : "Taking you to checkout now.";
       setReply(msg);
       setChatHistory(prev => [...prev, { role: "user", text }, { role: "mitra", text: msg }]);
-      if (!isMuted) speak(msg);
-      setTimeout(() => { setIsOpen(false); router.push("/checkout"); }, 2000);
+      if (shouldSpeak()) speak(msg);
+      setTimeout(() => { isOpenRef.current = false; setIsOpen(false); router.push("/checkout"); }, 2000);
       setIsProcessing(false);
       return true;
     }
@@ -425,7 +442,7 @@ export default function CraftMitra() {
       if (data.responseLanguage) {
         detectedLangRef.current = data.responseLanguage;
       }
-      if (!isMuted) await speak(data.text);
+      if (shouldSpeak()) await speak(data.text);
 
       if (data.action === "ADD_TO_CART") {
          setVisualType("PRODUCT");
@@ -443,6 +460,7 @@ export default function CraftMitra() {
          setChatHistory(prev => [...prev, { role: "mitra", text: data.text, visualType: "PRODUCT", visualData: data.data }]);
          
          setTimeout(() => {
+            isOpenRef.current = false;
             setIsOpen(false);
             router.push("/checkout");
          }, 4000);
@@ -462,7 +480,7 @@ export default function CraftMitra() {
 
       else if (data.action === "NAVIGATE" && data.url) {
         setChatHistory(prev => [...prev, { role: "mitra", text: data.text }]);
-        setTimeout(() => { setIsOpen(false); router.push(data.url); }, 3000);
+        setTimeout(() => { isOpenRef.current = false; setIsOpen(false); router.push(data.url); }, 3000);
       }
       
       else {
@@ -481,6 +499,10 @@ export default function CraftMitra() {
   };
 
   const speak = async (text: string) => {
+    if (!shouldSpeak()) {
+      stopSpeech();
+      return;
+    }
     if (audioRef.current) audioRef.current.pause();
     if (hasBrowserTTSRef.current) speechSynthesis.cancel();
     speakCancelledRef.current = false;
@@ -518,7 +540,7 @@ export default function CraftMitra() {
         audio.onended = () => {
           setIsSpeaking(false);
           // Auto-listen after Mitra finishes speaking
-          if (mode === "voice" && isOpen && !isMuted && !speakCancelledRef.current) {
+          if (modeRef.current === "voice" && isOpenRef.current && !isMutedRef.current && !speakCancelledRef.current) {
             setTimeout(() => {
               setTranscript("");
               setInterimTranscript("");
@@ -580,7 +602,7 @@ export default function CraftMitra() {
     }
     if (sentences.length === 0) {
       setIsSpeaking(false);
-      if (mode === "voice" && isOpen && !isMuted) {
+      if (modeRef.current === "voice" && isOpenRef.current && !isMutedRef.current) {
         setTimeout(() => {
           setTranscript("");
           setInterimTranscript("");
@@ -682,7 +704,10 @@ export default function CraftMitra() {
               {/* Left: Mode toggle */}
               <div className="flex items-center gap-1 bg-white/5 rounded-full p-0.5">
                 <button
-                  onClick={() => setMode("voice")}
+                  onClick={() => {
+                    modeRef.current = "voice";
+                    setMode("voice");
+                  }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                     mode === "voice"
                       ? "bg-[#D4AF37] text-[#1A1D2E]"
@@ -694,7 +719,9 @@ export default function CraftMitra() {
                 </button>
                 <button
                   onClick={() => {
+                    modeRef.current = "text";
                     setMode("text");
+                    stopSpeech();
                     setTimeout(() => inputRef.current?.focus(), 100);
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
@@ -712,13 +739,11 @@ export default function CraftMitra() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => {
-                    setIsMuted(!isMuted);
-                    if (!isMuted) {
-                      if (audioRef.current) audioRef.current.pause();
-                      speakCancelledRef.current = true;
-                      if (hasBrowserTTSRef.current) speechSynthesis.cancel();
-                      audioQueueRef.current = [];
-                      setIsSpeaking(false);
+                    const nextMuted = !isMuted;
+                    isMutedRef.current = nextMuted;
+                    setIsMuted(nextMuted);
+                    if (nextMuted) {
+                      stopSpeech();
                     }
                   }}
                   className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
@@ -743,6 +768,7 @@ export default function CraftMitra() {
                 <button
                   onClick={() => {
                     setIsOpen(false);
+                    isOpenRef.current = false;
                     speakCancelledRef.current = true;
                     if (audioRef.current) audioRef.current.pause();
                     if (hasBrowserTTSRef.current) speechSynthesis.cancel();
@@ -862,6 +888,7 @@ export default function CraftMitra() {
                         )}
                         <Button
                           onClick={() => {
+                            isOpenRef.current = false;
                             setIsOpen(false);
                             router.push("/checkout");
                           }}
@@ -969,6 +996,7 @@ export default function CraftMitra() {
                             )}
                             <Button
                               onClick={() => {
+                                isOpenRef.current = false;
                                 setIsOpen(false);
                                 router.push("/checkout");
                               }}

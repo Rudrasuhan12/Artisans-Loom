@@ -49,7 +49,7 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const emailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
   port: Number(process.env.SMTP_PORT) || 587,
@@ -133,9 +133,11 @@ async function generateAutomatedStory() {
     const artisan = eligibleArtisans[Math.floor(Math.random() * eligibleArtisans.length)];
     const prompt = `Write a beautiful 300-word spotlight for artisan ${artisan.name} who does ${artisan.profile?.craftType || 'traditional crafts'}. Return ONLY JSON with keys: "title", "excerpt", "content".`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.5-flash-lite",
+      contents: prompt,
+    });
+    const responseText = result.text;
 
     // Extract JSON from potential Markdown formatting
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -162,14 +164,34 @@ async function generateAutomatedStory() {
 }
 
 
-// Manual Trigger for Testing (protected — only in development)
-app.get('/api/stories/trigger', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ error: 'Not available in production' });
+function isAuthorizedStoryTrigger(req) {
+  if (process.env.NODE_ENV !== 'production') return true;
+
+  const triggerSecret = process.env.STORY_TRIGGER_SECRET || process.env.ADMIN_SECRET;
+  const authHeader = req.get('authorization') || '';
+  const headerSecret = req.get('x-story-trigger-secret');
+
+  return Boolean(
+    triggerSecret &&
+    (
+      authHeader === `Bearer ${triggerSecret}` ||
+      headerSecret === triggerSecret
+    )
+  );
+}
+
+async function handleStoryTrigger(req, res) {
+  if (!isAuthorizedStoryTrigger(req)) {
+    return res.status(403).json({ error: 'Story trigger is not authorized.' });
   }
   const result = await generateAutomatedStory();
   res.send(result);
-});
+}
+
+// Manual Trigger for Testing/Admin use. In production this requires a server-side secret.
+app.route('/api/stories/trigger')
+  .get(handleStoryTrigger)
+  .post(handleStoryTrigger);
 
 // Fetch all stories with mapped IDs for the Reels frontend
 app.get('/api/stories', async (req, res) => {
