@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { X, ChevronRight, Loader2, Play, Sparkles, BookOpen, MapPin } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ interface Story {
 
 function StoriesContent() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [isTriggering, setIsTriggering] = useState(false);
@@ -59,15 +61,21 @@ function StoriesContent() {
   const handleTriggerStory = async () => {
     setIsTriggering(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/stories/trigger`);
+      const res = await fetch("/api/stories/trigger", { method: "POST" });
       const result = await res.text();
-      if (result.includes("Success")) {
+      if (res.ok && result.includes("Success")) {
         toast.success("The loom has spun a new story!");
         fetchStories();
       } else {
-        toast.error(result || "The artisans are busy, try again later.");
+        let message = result || "The artisans are busy, try again later.";
+        try {
+          message = JSON.parse(result).error || message;
+        } catch {
+          // Keep the raw backend text when the response is not JSON.
+        }
+        toast.error(message);
       }
-    } catch (error) {
+    } catch {
       toast.error("Connection to loom failed.");
     } finally {
       setIsTriggering(false);
@@ -141,7 +149,7 @@ function StoriesContent() {
                 {currentStory.featuredArtisan?.name || "Featured Artisan"}
               </h2>
               <p className="text-sm text-gray-200 line-clamp-3 mb-6 italic leading-relaxed">
-                "{currentStory.excerpt}"
+                &quot;{currentStory.excerpt}&quot;
               </p>
               
               {/* [FIXED REDIRECTION]: Checks flattened ID or nested ID */}
@@ -193,15 +201,17 @@ function StoriesContent() {
             >
               <Play className="w-4 h-4 fill-current" /> Watch Reels
             </Button>
-            <Button 
-              disabled={isTriggering}
-              onClick={handleTriggerStory}
-              variant="outline" 
-              className="rounded-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white px-6 gap-2"
-            >
-              {isTriggering ? <Loader2 className="animate-spin w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-              Craft New Story
-            </Button>
+            {(session?.user as { role?: string } | undefined)?.role === "ADMIN" && (
+              <Button 
+                disabled={isTriggering}
+                onClick={handleTriggerStory}
+                variant="outline" 
+                className="rounded-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white px-6 gap-2"
+              >
+                {isTriggering ? <Loader2 className="animate-spin w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                Craft New Story
+              </Button>
+            )}
           </div>
         </div>
 
@@ -209,7 +219,7 @@ function StoriesContent() {
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-[#E5DCCA] shadow-sm">
             <BookOpen className="w-12 h-12 text-[#E5DCCA] mx-auto mb-4" />
             <h3 className="text-xl font-serif text-[#4A3526]">The loom is empty</h3>
-            <p className="text-[#8C7B70]">Click 'Craft New Story' to feature your first artisan.</p>
+            <p className="text-[#8C7B70]">Click &apos;Craft New Story&apos; to feature your first artisan.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -237,7 +247,7 @@ function StoriesContent() {
                     {story.title}
                   </h3>
                   <p className="text-sm text-[#8C7B70] line-clamp-3 italic leading-relaxed">
-                    "{story.excerpt}"
+                    &quot;{story.excerpt}&quot;
                   </p>
                   <div className="pt-4 flex items-center justify-between text-[#D4AF37] font-bold text-xs uppercase tracking-tighter">
                     <span>By {story.featuredArtisan?.name || "Artisan"}</span>
