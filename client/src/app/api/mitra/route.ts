@@ -11,6 +11,23 @@ const cleanJSON = (text: string) => {
   return match ? match[0] : text;
 };
 
+// ── Trending products cache (5-minute TTL) ──────────────────────────────
+// Trending products rarely change — no need to hit the DB on every voice turn.
+let trendingCache: { data: any[]; expires: number } | null = null;
+const TRENDING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getCachedTrending() {
+  if (trendingCache && Date.now() < trendingCache.expires) {
+    return trendingCache.data;
+  }
+  const data = await prisma.product.findMany({
+    take: 4, orderBy: { views: 'desc' },
+    select: { title: true, category: true, price: true, artisan: { select: { profile: { select: { state: true } } } } }
+  });
+  trendingCache = { data, expires: Date.now() + TRENDING_CACHE_TTL };
+  return data;
+}
+
 export async function POST(req: Request) {
   try {
     const { message, history, visualContext, cartSummary, detectedLanguage } = await req.json();
@@ -19,11 +36,12 @@ export async function POST(req: Request) {
 
     let userRole = "GUEST";
     let userName = "Traveler";
-    let dbUser = null;
+    let dbUser: any = null;
     let personalContext = "User is a guest exploring the site.";
 
-    if (userId) {
-      dbUser = await prisma.user.findUnique({
+    // ── Parallel DB queries — user + trending run simultaneously ──────────
+    const [dbUserResult, trending] = await Promise.all([
+      userId ? prisma.user.findUnique({
         where: { id: userId },
         include: {
           orders: {
@@ -36,30 +54,27 @@ export async function POST(req: Request) {
             orderBy: { salesCount: 'desc' }
           }
         }
-      });
+      }) : Promise.resolve(null),
+      getCachedTrending(),
+    ]);
 
-      if (dbUser) {
-        userRole = dbUser.role;
-        userName = dbUser.name?.split(" ")[0] || "Friend";
+    dbUser = dbUserResult;
+    if (dbUser) {
+      userRole = dbUser.role;
+      userName = dbUser.name?.split(" ")[0] || "Friend";
 
-        if (userRole === "ARTISAN") {
-          const totalSales = dbUser.products.reduce((a, b) => a + b.salesCount, 0);
-          const topItem = dbUser.products[0]?.title || "None";
-          personalContext = `User is an ARTISAN (Seller). Sales: ${totalSales}. Top Item: ${topItem}. Needs business advice.`;
-        } else {
-          const lastOrder = dbUser.orders[0];
-          const lastItem = lastOrder?.items[0]?.product.title;
-          personalContext = `User is a PATRON (Buyer). Last purchase: ${lastItem || "None"}.`;
-        }
+      if (userRole === "ARTISAN") {
+        const totalSales = dbUser.products.reduce((a: number, b: any) => a + b.salesCount, 0);
+        const topItem = dbUser.products[0]?.title || "None";
+        personalContext = `User is an ARTISAN (Seller). Sales: ${totalSales}. Top Item: ${topItem}. Needs business advice.`;
+      } else {
+        const lastOrder = dbUser.orders[0];
+        const lastItem = lastOrder?.items[0]?.product.title;
+        personalContext = `User is a PATRON (Buyer). Last purchase: ${lastItem || "None"}.`;
       }
     }
 
-    const trending = await prisma.product.findMany({
-      take: 4, orderBy: { views: 'desc' },
-      select: { title: true, category: true, price: true, artisan: { select: { profile: { select: { state: true } } } } }
-    });
-
-    const trendingText = trending.map(t => `${t.title} (${t.category}, ₹${t.price})`).join(", ");
+    const trendingText = trending.map((t: any) => `${t.title} (${t.category}, ₹${t.price})`).join(", ");
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 

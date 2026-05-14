@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useVoiceLive, VoiceLiveAction } from "./useVoiceLive";
 import { Mic, X, Sparkles, Globe, Loader2, ShoppingCart, Package, Send, MessageSquare, Volume2, VolumeX, Trash2, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -121,6 +122,18 @@ export default function CraftMitra() {
   const [isMuted, setIsMuted] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [textInput, setTextInput] = useState("");
@@ -130,12 +143,81 @@ export default function CraftMitra() {
   const [visualType, setVisualType] = useState<"PRODUCT" | "ORDER" | "CART" | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [mode, setMode] = useState<"voice" | "text">("voice");
+  const [useLiveVoice, setUseLiveVoice] = useState(true); // Gemini Live mode flag
+
+  // ── Gemini Live voice hook (sub-1s real-time) ──────────────────────────
+  const handleLiveAction = useCallback((action: VoiceLiveAction) => {
+    // Clear previous visual data before showing new results
+    setVisualType(null);
+    setVisualData(null);
+
+    if (action.action === 'SHOW_PRODUCTS' && action.data?.length > 0) {
+      setVisualType('PRODUCT');
+      setVisualData(action.data);
+      setIsVoiceExpanded(false);
+      setChatHistory(prev => [...prev, { role: 'mitra', text: '🎯 Here are some products I found:', visualType: 'PRODUCT', visualData: action.data }]);
+    } else if (action.action === 'SHOW_PRODUCTS' && (!action.data || action.data.length === 0)) {
+      // No products found — don't show stale cards
+      setChatHistory(prev => [...prev, { role: 'mitra', text: 'I couldn\'t find products matching that criteria. Try a different search!' }]);
+    } else if (action.action === 'ADD_TO_CART' && action.data) {
+      const product = action.data;
+      addToCartStore({ id: product.id, title: product.title, price: product.price, image: product.images?.[0] || '/p1.png', quantity: 1 });
+      toast.success(`${product.title} added to cart!`);
+      setVisualType('PRODUCT');
+      setVisualData([product]);
+      setChatHistory(prev => [...prev, { role: 'mitra', text: `✅ Added ${product.title} to your cart!`, visualType: 'PRODUCT', visualData: [product] }]);
+    } else if (action.action === 'NAVIGATE' && action.url) {
+      setChatHistory(prev => [...prev, { role: 'mitra', text: `Taking you to ${action.url}...` }]);
+      setTimeout(() => { isOpenRef.current = false; setIsOpen(false); router.push(action.url!); }, 2000);
+    }
+  }, [addToCartStore, router]);
+
+  const voiceLive = useVoiceLive({
+    onTranscript: (side, text, isFinal) => {
+      if (side === 'user') {
+        // Display user's question using Gemini's inputTranscription
+        // Skip when Gemini is speaking — those are echoes of its own voice
+        if (text.trim() && !geminiSpeakingRef.current) {
+          setTranscript(text);
+          transcriptRef.current = text;
+        }
+      } else {
+        setReply(text);
+        if (isFinal && text.trim()) {
+          setChatHistory(prev => [...prev, { role: 'mitra', text: text.trim() }]);
+        }
+      }
+    },
+    onAction: handleLiveAction,
+    // Fires SYNCHRONOUSLY when audio playback starts/stops.
+    onSpeakingChange: (speaking) => {
+      geminiSpeakingRef.current = speaking;
+      if (speaking) {
+        // Physically STOP browser STT to prevent echo
+        try { recognitionRef.current?.stop(); } catch(e) {}
+      }
+    },
+    onReady: () => {
+      setIsListening(true);
+      const name = session?.user?.name?.split(' ')[0] || 'Traveler';
+      setReply(`🎙️ Namaste ${name}! Mitra is listening... speak naturally.`);
+    },
+    onEnded: (reason) => {
+      setIsListening(false);
+      setReply('Voice session ended. Tap the mic to start again.');
+    },
+    onError: (msg) => {
+      toast.error(msg);
+      setIsListening(false);
+    },
+  });
 
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef(""); 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioQueueRef = useRef<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const replyContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceCacheRef = useRef<Record<string, SpeechSynthesisVoice | null>>({});
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -146,7 +228,50 @@ export default function CraftMitra() {
   const langSwitchingRef = useRef(false);
   const modeRef = useRef<"voice" | "text">("voice");
   const isMutedRef = useRef(false);
+  const hasGeminiSpokenRef = useRef(false);
+  const geminiSpeakingRef = useRef(false);
+  const liveConnectedRef = useRef(false);
+
+  // Trigger greeting after connection is fully established
+  useEffect(() => {
+    if (voiceLive.isReady) {
+      const name = session?.user?.name?.split(' ')[0] || 'Traveler';
+      voiceLive.sendIdentify({ email: session?.user?.email || '', name: session?.user?.name || '' });
+      voiceLive.sendText(`User "${name}" just joined. You are Craft Mitra. Give a warm 1-sentence greeting to ${name}.`);
+      
+      // Start STT for real-time visual feedback
+      if (recognitionRef.current) {
+        recognitionRef.current.lang = 'en-IN';
+        try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
+      }
+    }
+  }, [voiceLive.isReady]);
+
+  // ── Live mode state sync ──
+  useEffect(() => {
+    geminiSpeakingRef.current = voiceLive.isSpeaking;
+    liveConnectedRef.current = voiceLive.isConnected;
+    if (!useLiveVoice || !voiceLive.isConnected) return;
+    if (voiceLive.isSpeaking) {
+      hasGeminiSpokenRef.current = true;
+      // STT stopped synchronously in onSpeakingChange
+    } else if (hasGeminiSpokenRef.current && isOpenRef.current) {
+      // Gemini finished speaking — clear old user transcript for next turn
+      setTranscript("");
+      setInterimTranscript("");
+      transcriptRef.current = "";
+      setIsListening(true);
+      // Restart STT
+      setTimeout(() => {
+        try { recognitionRef.current?.start(); } catch(e) {}
+      }, 80);
+    }
+  }, [voiceLive.isSpeaking, voiceLive.isConnected, useLiveVoice]);
   const isOpenRef = useRef(false);
+
+  // Pagination state for "See More" products
+  const [expandedChatMsgs, setExpandedChatMsgs] = useState<Record<number, boolean>>({});
+  const [isVoiceExpanded, setIsVoiceExpanded] = useState(false);
 
   // Map detected language code to SpeechRecognition BCP-47 locale
   const LANG_TO_RECOGNITION: Record<string, string> = {
@@ -167,6 +292,11 @@ export default function CraftMitra() {
       recognition.interimResults = true;
 
       recognition.onresult = (event: any) => {
+        // ═══ HOT MIC ECHO GUARD ═══
+        // When Gemini is speaking, browser STT picks up her voice as echo.
+        // Silently discard those results — the mic stays open for instant resume.
+        if (liveConnectedRef.current && geminiSpeakingRef.current) return;
+
         let interim = "";
         let final = "";
         for (let i = 0; i < event.results.length; i++) {
@@ -178,26 +308,24 @@ export default function CraftMitra() {
           }
         }
 
-        // Real-time language detection from interim results (JARVIS-like)
+        // Language detection & switching — detect user's language and switch STT locale
+        // so transcript renders in the correct script (Devanagari, Odia, etc.)
         const textToAnalyze = interim || final;
         if (textToAnalyze && language === 'auto' && !langSwitchingRef.current) {
           const detected = detectLanguageFromText(textToAnalyze);
           const targetRecogLang = LANG_TO_RECOGNITION[detected] || 'en-IN';
           
-          // If we detected a different language, restart recognition with correct language
           if (detected !== 'en' && targetRecogLang !== recognitionLangRef.current) {
             langSwitchingRef.current = true;
             detectedLangRef.current = detected;
             recognitionLangRef.current = targetRecogLang;
-            // Save any accumulated text before restart
             const savedText = transcriptRef.current;
             try {
               recognition.stop();
-              // Restart with new language after brief pause
               setTimeout(() => {
                 setTranscript("");
                 setInterimTranscript("");
-                transcriptRef.current = savedText; // Preserve context
+                transcriptRef.current = savedText;
                 recognition.lang = targetRecogLang;
                 try { 
                   recognition.start(); 
@@ -214,7 +342,6 @@ export default function CraftMitra() {
           setTranscript(final);
           transcriptRef.current = final;
           setInterimTranscript("");
-          // Final language detection
           const detected = detectLanguageFromText(final);
           detectedLangRef.current = detected;
         } else {
@@ -223,20 +350,35 @@ export default function CraftMitra() {
 
         // Reset silence timer on every speech result
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(() => {
-          // 2s of silence after speech → auto-submit
-          if (transcriptRef.current.trim().length > 1) {
-            recognition.stop();
-          }
-        }, 2000);
+        // Skip auto-stop when Gemini Live is connected — Live handles its own VAD
+        if (!liveConnectedRef.current) {
+          silenceTimerRef.current = setTimeout(() => {
+            if (transcriptRef.current.trim().length > 1) {
+              recognition.stop();
+            }
+          }, 1200);
+        }
       };
 
       recognition.onend = () => {
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        // Live mode: only restart if Gemini is NOT speaking.
+        // When Gemini is speaking, STT was stopped intentionally (echo prevention).
+        // The speaking sync useEffect handles restarting after Gemini finishes.
+        if (liveConnectedRef.current) {
+          if (isOpenRef.current && !geminiSpeakingRef.current) {
+            setTimeout(() => {
+              try { recognition.start(); } catch(e) {}
+            }, 50);
+          }
+          return;
+        }
         setIsListening(false);
         setInterimTranscript("");
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         // Don't submit if we're just switching languages
         if (langSwitchingRef.current) return;
+        // Don't submit if Gemini is speaking — would be echo of Mitra's own voice
+        if (geminiSpeakingRef.current) return;
         if (transcriptRef.current.trim().length > 1) {
           handleSend(transcriptRef.current);
         }
@@ -264,6 +406,21 @@ export default function CraftMitra() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, visualData]);
+
+  // Auto-scroll voice mode reply container — progressive, every text chunk
+  useEffect(() => {
+    if (!replyContainerRef.current) return;
+    // Double-RAF: first RAF fires after React commit, second fires after
+    // browser has laid out the new text content. This guarantees scrollHeight
+    // reflects the latest DOM state for pixel-perfect scroll tracking.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (replyContainerRef.current) {
+          replyContainerRef.current.scrollTop = replyContainerRef.current.scrollHeight;
+        }
+      });
+    });
+  }, [reply]);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -295,11 +452,38 @@ export default function CraftMitra() {
       isOpenRef.current = true;
       modeRef.current = "voice";
       setMode("voice");
+
+      // ── Gemini Live mode (sub-1s real-time) ──
+      if (useLiveVoice) {
+        const name = session?.user?.name?.split(' ')[0] || "Traveler";
+        setReply(`Connecting Mitra Live... 🎙️`);
+        setChatHistory([{ role: "mitra", text: `Namaste ${name}! Connecting real-time voice...` }]);
+        voiceLive.connect((session?.user as any)?.role, session?.user?.name || undefined);
+        
+        // Browser recognition will start AFTER greeting finishes (echo-guard useEffect)
+        setTranscript("");
+        setInterimTranscript("");
+        transcriptRef.current = "";
+        hasGeminiSpokenRef.current = false;
+        
+        return;
+      }
+
+      // ── Fallback: legacy browser STT mode ──
       const name = session?.user?.name?.split(' ')[0] || "Traveler";
       const greeting = `Namaste ${name}, I am Mitra. How may I serve you? You can ask me to find products, add to cart, track orders, or shop by voice in Hindi or English!`;
       setReply(greeting);
       setChatHistory([{ role: "mitra", text: greeting }]);
       if (shouldSpeak()) speak(greeting);
+      return;
+    }
+
+    // Already open — toggle mic
+    if (useLiveVoice && voiceLive.isConnected) {
+      voiceLive.disconnect();
+      try { recognitionRef.current?.stop(); } catch(e) {}
+      setIsListening(false);
+      hasGeminiSpokenRef.current = false;
       return;
     }
 
@@ -310,7 +494,6 @@ export default function CraftMitra() {
       setInterimTranscript("");
       transcriptRef.current = "";
       langSwitchingRef.current = false;
-      // Use detected language for recognition, or default to en-IN
       const recogLang = language === 'auto' 
         ? (LANG_TO_RECOGNITION[detectedLangRef.current] || 'en-IN')
         : language;
@@ -442,7 +625,7 @@ export default function CraftMitra() {
       if (data.responseLanguage) {
         detectedLangRef.current = data.responseLanguage;
       }
-      if (shouldSpeak()) await speak(data.text);
+      if (shouldSpeak()) speak(data.text); // Fire-and-forget — visual cards render while audio plays
 
       if (data.action === "ADD_TO_CART") {
          setVisualType("PRODUCT");
@@ -498,6 +681,55 @@ export default function CraftMitra() {
     }
   };
 
+  // ── Helper: fetch TTS audio URL from server ──
+  const fetchTTSAudio = async (text: string, lang: string): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, lang }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.url || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // ── Helper: auto-listen after Mitra finishes speaking ──
+  const autoListenAfterSpeech = () => {
+    if (modeRef.current === "voice" && isOpenRef.current && !isMutedRef.current && !speakCancelledRef.current) {
+      setTimeout(() => {
+        setTranscript("");
+        setInterimTranscript("");
+        transcriptRef.current = "";
+        if (recognitionRef.current) {
+          recognitionRef.current.lang = language === 'auto' ? (LANG_TO_RECOGNITION[detectedLangRef.current] || 'en-IN') : language;
+          try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
+        }
+      }, 600);
+    }
+  };
+
+  // ── Helper: play a TTS audio URL, with optional auto-listen on end ──
+  const playTTSAudio = (url: string, isLast: boolean): Promise<void> => {
+    return new Promise((resolve) => {
+      if (speakCancelledRef.current) { setIsSpeaking(false); resolve(); return; }
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        if (isLast) {
+          setIsSpeaking(false);
+          autoListenAfterSpeech();
+        }
+        resolve();
+      };
+      audio.onerror = () => { setIsSpeaking(false); resolve(); };
+      audio.play().catch(() => { setIsSpeaking(false); resolve(); });
+    });
+  };
+
   const speak = async (text: string) => {
     if (!shouldSpeak()) {
       stopSpeech();
@@ -517,60 +749,63 @@ export default function CraftMitra() {
 
     console.log(`[Mitra TTS] Speaking: lang=${targetLang}, textLen=${text.length}, first50="${text.substring(0, 50)}"`);
 
-    // Primary: Edge Neural TTS (server) — human-like quality
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, lang: targetLang }),
-      });
+    // Split into sentences for progressive playback
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
 
-      if (!response.ok) {
-        console.error(`[Mitra TTS] Server error: ${response.status}`);
-        speakBrowserFallback(text, targetLang);
+    // Short text (≤1 sentence) — single TTS call, no split overhead
+    if (sentences.length <= 1) {
+      const url = await fetchTTSAudio(text, targetLang);
+      if (url && !speakCancelledRef.current) {
+        playTTSAudio(url, true);
         return;
       }
-
-      const data = await response.json();
-      console.log(`[Mitra TTS] Server response: url=${data.url ? `${data.url.length} chars` : 'null'}, error=${data.error || 'none'}`);
-
-      if (data.url && !speakCancelledRef.current) {
-        const audio = new Audio(data.url);
-        audioRef.current = audio;
-        audio.onended = () => {
-          setIsSpeaking(false);
-          // Auto-listen after Mitra finishes speaking
-          if (modeRef.current === "voice" && isOpenRef.current && !isMutedRef.current && !speakCancelledRef.current) {
-            setTimeout(() => {
-              setTranscript("");
-              setInterimTranscript("");
-              transcriptRef.current = "";
-              if (recognitionRef.current) {
-                recognitionRef.current.lang = language === 'auto' ? (LANG_TO_RECOGNITION[detectedLangRef.current] || 'en-IN') : language;
-                try { recognitionRef.current.start(); setIsListening(true); } catch(e) {}
-              }
-            }, 600);
-          }
-        };
-        audio.onerror = (e) => {
-          console.error(`[Mitra TTS] Audio playback error:`, e);
-          speakBrowserFallback(text, targetLang);
-        };
-        audio.play().catch((e) => {
-          console.error(`[Mitra TTS] Audio play() rejected:`, e);
-          speakBrowserFallback(text, targetLang);
-        });
-        return;
-      }
-
-      // url was null — server couldn't generate audio
-      console.warn(`[Mitra TTS] Server returned null URL, trying browser fallback`);
-    } catch (e) {
-      console.error(`[Mitra TTS] Fetch error:`, e);
+      speakBrowserFallback(text, targetLang);
+      return;
     }
 
-    // Fallback: browser-native SpeechSynthesis
-    speakBrowserFallback(text, targetLang);
+    // ── Progressive TTS: play first sentence ASAP while rest prefetches ──
+    const firstSentence = sentences[0].trim();
+    const restText = sentences.slice(1).map(s => s.trim()).filter(Boolean).join(' ');
+
+    // Fire BOTH TTS requests in parallel
+    const firstPromise = fetchTTSAudio(firstSentence, targetLang);
+    const restPromise = restText ? fetchTTSAudio(restText, targetLang) : Promise.resolve(null);
+
+    try {
+      // Wait only for the first sentence — start playing immediately
+      const firstUrl = await firstPromise;
+
+      if (firstUrl && !speakCancelledRef.current) {
+        const firstAudio = new Audio(firstUrl);
+        audioRef.current = firstAudio;
+
+        firstAudio.onended = async () => {
+          if (speakCancelledRef.current) { setIsSpeaking(false); return; }
+          // Rest was prefetching in parallel — should be ready by now
+          try {
+            const restUrl = await restPromise;
+            if (restUrl && !speakCancelledRef.current) {
+              playTTSAudio(restUrl, true);
+            } else {
+              setIsSpeaking(false);
+              autoListenAfterSpeech();
+            }
+          } catch {
+            setIsSpeaking(false);
+            autoListenAfterSpeech();
+          }
+        };
+        firstAudio.onerror = () => speakBrowserFallback(text, targetLang);
+        firstAudio.play().catch(() => speakBrowserFallback(text, targetLang));
+        return;
+      }
+
+      // First URL was null — fall through to browser TTS
+      speakBrowserFallback(text, targetLang);
+    } catch (e) {
+      console.error(`[Mitra TTS] Progressive fetch error:`, e);
+      speakBrowserFallback(text, targetLang);
+    }
   };
 
   const speakBrowserFallback = (text: string, targetLang: string) => {
@@ -776,6 +1011,8 @@ export default function CraftMitra() {
                     audioQueueRef.current = [];
                     setIsSpeaking(false);
                     setIsListening(false);
+                    voiceLive.disconnect(); // Clean up Gemini Live session
+                    hasGeminiSpokenRef.current = false;
                   }}
                   className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all cursor-pointer ml-1"
                   aria-label="Close"
@@ -812,92 +1049,114 @@ export default function CraftMitra() {
                             {msg.text}
                           </p>
                         </div>
+                        
+                        {/* Render visual data inline with the message if it exists */}
+                        {msg.visualData && msg.visualType === "PRODUCT" && (
+                          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 mt-2 w-full max-w-full items-stretch">
+                            {(() => {
+                              const allProds = Array.isArray(msg.visualData) ? msg.visualData : [msg.visualData];
+                              const isExpanded = expandedChatMsgs[i];
+                              const visibleProds = isExpanded ? allProds : allProds.slice(0, 3);
+                              const hasMore = allProds.length > 3;
+
+                              return (
+                                <>
+                                  {visibleProds.map((prod: any) => (
+                                    <div
+                                      key={prod.id}
+                                      className="min-w-[180px] w-[180px] bg-white rounded-xl overflow-hidden shadow-lg border border-[#D4AF37]/40 shrink-0"
+                                    >
+                                      <div className="relative h-24 w-full">
+                                        <Image
+                                          src={prod.images?.[0] || "/p1.png"}
+                                          alt={prod.title}
+                                          fill
+                                          className="object-cover"
+                                        />
+                                      </div>
+                                      <div className="p-2.5">
+                                        <h4 className="text-xs font-bold text-[#4A3526] line-clamp-1">
+                                          {prod.title}
+                                        </h4>
+                                        <p className="text-xs text-[#D97742] font-bold mt-0.5">
+                                          ₹{prod.price?.toLocaleString()}
+                                        </p>
+                                        <Button
+                                          onClick={() => handleAddToCart(prod)}
+                                          className="w-full h-7 mt-1.5 text-[10px] bg-[#2F334F] text-[#D4AF37] hover:bg-[#1E2135] cursor-pointer"
+                                        >
+                                          <ShoppingCart className="w-3 h-3 mr-1" /> Add to Cart
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {hasMore && !isExpanded && (
+                                    <div className="min-w-[120px] w-[120px] shrink-0 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition-colors"
+                                         onClick={() => setExpandedChatMsgs(prev => ({ ...prev, [i]: true }))}>
+                                      <div className="flex flex-col items-center text-[#D4AF37]">
+                                        <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 flex items-center justify-center mb-2">
+                                          <span className="text-lg">+</span>
+                                        </div>
+                                        <span className="text-xs font-bold">See {allProds.length - 3} More</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {msg.visualData && msg.visualType === "CART" && (
+                          <div className="space-y-2 mt-2 w-full">
+                            {(Array.isArray(msg.visualData) ? msg.visualData : [msg.visualData]).map(
+                              (item: any) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center gap-3 bg-white/8 rounded-xl px-3 py-2.5 border border-white/8"
+                                >
+                                  <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                                    <Image
+                                      src={item.image || "/p1.png"}
+                                      alt={item.title}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-[#E5DCCA] font-medium truncate">
+                                      {item.title}
+                                    </p>
+                                    <p className="text-xs text-[#D4AF37]">
+                                      ₹{item.price?.toLocaleString()} × {item.quantity}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveFromCart(item.id)}
+                                    className="text-red-400/60 hover:text-red-400 p-1 cursor-pointer transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )
+                            )}
+                            <Button
+                              onClick={() => {
+                                isOpenRef.current = false;
+                                setIsOpen(false);
+                                router.push("/checkout");
+                              }}
+                              className="w-full mt-1 bg-[#D4AF37] text-[#1A1D2E] hover:bg-[#b8962e] font-bold text-sm cursor-pointer"
+                            >
+                              Proceed to Checkout →
+                            </Button>
+                          </div>
+                        )}
+                        
                       </div>
                     ))}
 
-                    {/* Inline product cards */}
-                    {visualData && visualType === "PRODUCT" && (
-                      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-                        {(Array.isArray(visualData) ? visualData : [visualData]).map(
-                          (prod: any) => (
-                            <div
-                              key={prod.id}
-                              className="min-w-[180px] w-[180px] bg-white rounded-xl overflow-hidden shadow-lg border border-[#D4AF37]/40 shrink-0"
-                            >
-                              <div className="relative h-24 w-full">
-                                <Image
-                                  src={prod.images?.[0] || "/p1.png"}
-                                  alt={prod.title}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="p-2.5">
-                                <h4 className="text-xs font-bold text-[#4A3526] line-clamp-1">
-                                  {prod.title}
-                                </h4>
-                                <p className="text-xs text-[#D97742] font-bold mt-0.5">
-                                  ₹{prod.price?.toLocaleString()}
-                                </p>
-                                <Button
-                                  onClick={() => handleAddToCart(prod)}
-                                  className="w-full h-7 mt-1.5 text-[10px] bg-[#2F334F] text-[#D4AF37] hover:bg-[#1E2135] cursor-pointer"
-                                >
-                                  <ShoppingCart className="w-3 h-3 mr-1" /> Add to Cart
-                                </Button>
-                              </div>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    )}
-
-                    {/* Inline cart view */}
-                    {visualData && visualType === "CART" && (
-                      <div className="space-y-2">
-                        {(Array.isArray(visualData) ? visualData : [visualData]).map(
-                          (item: any) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center gap-3 bg-white/8 rounded-xl px-3 py-2.5 border border-white/8"
-                            >
-                              <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0">
-                                <Image
-                                  src={item.image || "/p1.png"}
-                                  alt={item.title}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-[#E5DCCA] font-medium truncate">
-                                  {item.title}
-                                </p>
-                                <p className="text-xs text-[#D4AF37]">
-                                  ₹{item.price?.toLocaleString()} × {item.quantity}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => handleRemoveFromCart(item.id)}
-                                className="text-red-400/60 hover:text-red-400 p-1 cursor-pointer transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )
-                        )}
-                        <Button
-                          onClick={() => {
-                            isOpenRef.current = false;
-                            setIsOpen(false);
-                            router.push("/checkout");
-                          }}
-                          className="w-full mt-1 bg-[#D4AF37] text-[#1A1D2E] hover:bg-[#b8962e] font-bold text-sm cursor-pointer"
-                        >
-                          Proceed to Checkout →
-                        </Button>
-                      </div>
-                    )}
+                    {/* Visual cards are now rendered inline within the chat messages above */}
 
                     {/* Processing indicator */}
                     {isProcessing && (
@@ -915,49 +1174,70 @@ export default function CraftMitra() {
                 </div>
               ) : (
                 /* ════════ VOICE MODE ════════ */
-                <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto px-4">
-                  {/* Visual cards */}
-                  <AnimatePresence>
-                    {visualData && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="w-full flex justify-center mb-6 shrink-0"
-                      >
-                        {visualType === "PRODUCT" && (
-                          <div className="flex gap-4 overflow-x-auto p-3 items-start w-full justify-center max-w-full">
-                            {(Array.isArray(visualData) ? visualData : [visualData]).map(
-                              (prod: any) => (
-                                <div
-                                  key={prod.id}
-                                  className="min-w-[200px] w-[200px] bg-white rounded-2xl overflow-hidden shadow-2xl border border-[#D4AF37] shrink-0"
-                                >
-                                  <div className="relative h-28 w-full">
-                                    <Image
-                                      src={prod.images?.[0] || "/p1.png"}
-                                      alt={prod.title}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                  </div>
-                                  <div className="p-3">
-                                    <h4 className="text-sm font-bold text-[#4A3526] line-clamp-1">
-                                      {prod.title}
-                                    </h4>
-                                    <p className="text-xs text-[#D97742] font-bold mt-1">
-                                      ₹{prod.price?.toLocaleString()}
-                                    </p>
-                                    <Button
-                                      onClick={() => handleAddToCart(prod)}
-                                      className="w-full h-8 mt-2 text-xs bg-[#2F334F] text-[#D4AF37] hover:bg-[#1E2135] cursor-pointer"
-                                    >
-                                      <ShoppingCart className="w-3 h-3 mr-1" /> Add
-                                    </Button>
-                                  </div>
-                                </div>
-                              )
-                            )}
+                <div className="flex-1 min-h-0 flex flex-col items-center justify-between overflow-y-auto overscroll-none px-4 py-2 w-full [&::-webkit-scrollbar]:hidden">
+                  
+                  {/* Top Area: Visual cards */}
+                  <div className="flex-1 min-h-0 w-full flex items-end justify-center pb-4">
+                    <AnimatePresence>
+                      {visualData && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="w-full flex justify-center shrink-0"
+                        >
+                          {visualType === "PRODUCT" && (
+                            <div className="flex gap-4 overflow-x-auto p-3 items-stretch w-full justify-center max-w-full">
+                              {(() => {
+                                const allProds = Array.isArray(visualData) ? visualData : [visualData];
+                                const visibleProds = isVoiceExpanded ? allProds : allProds.slice(0, 3);
+                                const hasMore = allProds.length > 3;
+
+                                return (
+                                  <>
+                                    {visibleProds.map((prod: any) => (
+                                      <div
+                                        key={prod.id}
+                                        className="min-w-[200px] w-[200px] bg-white rounded-2xl overflow-hidden shadow-2xl border border-[#D4AF37] shrink-0"
+                                      >
+                                        <div className="relative h-36 w-full">
+                                        <Image
+                                          src={prod.images?.[0] || "/p1.png"}
+                                          alt={prod.title}
+                                          fill
+                                          className="object-cover"
+                                        />
+                                      </div>
+                                      <div className="p-3">
+                                        <h4 className="text-sm font-bold text-[#4A3526] line-clamp-1">
+                                          {prod.title}
+                                        </h4>
+                                        <p className="text-xs text-[#D97742] font-bold mt-1">
+                                          ₹{prod.price?.toLocaleString()}
+                                        </p>
+                                        <Button
+                                          onClick={() => handleAddToCart(prod)}
+                                          className="w-full h-8 mt-2 text-xs bg-[#2F334F] text-[#D4AF37] hover:bg-[#1E2135] cursor-pointer"
+                                        >
+                                          <ShoppingCart className="w-3 h-3 mr-1" /> Add
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {hasMore && !isVoiceExpanded && (
+                                    <div className="min-w-[140px] w-[140px] shrink-0 flex items-center justify-center bg-white/5 border border-[#D4AF37]/50 rounded-2xl cursor-pointer hover:bg-[#D4AF37]/10 transition-colors shadow-2xl"
+                                         onClick={() => setIsVoiceExpanded(true)}>
+                                      <div className="flex flex-col items-center text-[#D4AF37]">
+                                        <div className="w-12 h-12 rounded-full bg-[#D4AF37]/20 flex items-center justify-center mb-2">
+                                          <span className="text-2xl">+</span>
+                                        </div>
+                                        <span className="text-sm font-bold tracking-wide">See {allProds.length - 3} More</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
 
@@ -1028,53 +1308,67 @@ export default function CraftMitra() {
                         )}
                       </motion.div>
                     )}
-                  </AnimatePresence>
+                    </AnimatePresence>
+                  </div>
 
-                  {/* Golden Orb */}
-                  <motion.div layout className="relative mb-6 shrink-0">
-                    <motion.div
-                      animate={{
-                        scale: isListening || isSpeaking ? [1, 1.08, 1] : 1,
-                        boxShadow: isSpeaking
-                          ? "0 0 50px 15px rgba(212, 175, 55, 0.5)"
-                          : "0 0 20px 5px rgba(212, 175, 55, 0.15)",
-                      }}
-                      transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                      className={`${
-                        visualData ? "w-20 h-20 sm:w-28 sm:h-28" : "w-36 h-36 sm:w-48 sm:h-48"
-                      } rounded-full bg-gradient-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] flex items-center justify-center border-4 border-white/20 transition-all duration-500`}
-                    >
-                      {isListening ? (
-                        <Mic className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F]`} />
-                      ) : isProcessing ? (
-                        <Loader2 className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F] animate-spin`} />
-                      ) : (
-                        <Sparkles className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F]`} />
-                      )}
-                    </motion.div>
-                  </motion.div>
-
-                  {/* Transcript + Reply */}
-                  <div className="w-full max-w-2xl flex flex-col items-center gap-3 px-4 text-center">
-                    {(transcript || interimTranscript) && (
-                      <p className="text-xl sm:text-2xl font-medium leading-tight">
-                        {transcript && <span className="text-[#D4AF37]">{transcript}</span>}
-                        {interimTranscript && <span className="text-white/30 italic">{interimTranscript}</span>}
-                      </p>
-                    )}
-                    {isProcessing ? (
-                      <p className="text-base text-white/40 animate-pulse">
-                        Consulting the loom...
-                      </p>
-                    ) : (
-                      reply && (
-                        <div className="bg-white/8 backdrop-blur-md rounded-2xl p-5 border border-white/8 max-h-48 overflow-y-auto w-full shadow-inner text-left">
-                          <p className="text-base text-[#E5DCCA] italic leading-relaxed font-serif whitespace-pre-line">
-                            {reply}
-                          </p>
+                  {/* Middle Area: Golden Orb */}
+                  <div className="shrink-0 my-2">
+                    <motion.div layout className="relative shrink-0">
+                      {/* LIVE badge */}
+                      {voiceLive.isConnected && (
+                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-lg">
+                          <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                          LIVE
                         </div>
-                      )
-                    )}
+                      )}
+                      <motion.div
+                        animate={{
+                          scale: (isListening || isSpeaking || voiceLive.isSpeaking) ? [1, 1.08, 1] : 1,
+                          boxShadow: (isSpeaking || voiceLive.isSpeaking)
+                            ? "0 0 50px 15px rgba(212, 175, 55, 0.5)"
+                            : voiceLive.isConnected
+                            ? "0 0 30px 10px rgba(16, 185, 129, 0.3)"
+                            : "0 0 20px 5px rgba(212, 175, 55, 0.15)",
+                        }}
+                        transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                        className={`${
+                          visualData ? "w-20 h-20 sm:w-28 sm:h-28" : "w-36 h-36 sm:w-48 sm:h-48"
+                        } rounded-full bg-gradient-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] flex items-center justify-center border-4 border-white/20 transition-all duration-500`}
+                      >
+                        {(isListening || voiceLive.isConnected) ? (
+                          <Mic className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F]`} />
+                        ) : isProcessing ? (
+                          <Loader2 className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F] animate-spin`} />
+                        ) : (
+                          <Sparkles className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F]`} />
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  </div>
+
+                  {/* Bottom Area: Transcript + Reply */}
+                  <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-start pt-4">
+                    <div className="w-full max-w-2xl flex flex-col items-center gap-3 px-4 text-center">
+                      {(transcript || interimTranscript) && (
+                        <p className="text-xl sm:text-2xl font-medium leading-tight">
+                          {transcript && <span className="text-[#D4AF37]">{transcript}</span>}
+                          {interimTranscript && <span className="text-[#D4AF37]/70">{interimTranscript}</span>}
+                        </p>
+                      )}
+                      {isProcessing ? (
+                        <p className="text-base text-white/40 animate-pulse">
+                          Consulting the loom...
+                        </p>
+                      ) : (
+                        reply && (
+                          <div ref={replyContainerRef} className="bg-white/8 backdrop-blur-md rounded-2xl p-4 border border-white/8 overflow-y-auto w-full shadow-inner text-left max-h-[140px]">
+                            <p className="text-sm text-[#E5DCCA] italic leading-relaxed font-serif whitespace-pre-line">
+                              {reply}
+                            </p>
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

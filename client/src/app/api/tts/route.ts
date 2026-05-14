@@ -72,9 +72,57 @@ function cleanTextForTTS(text: string, lang: string): string {
   return cleaned;
 }
 
-async function generateSpeech(voiceName: string, text: string): Promise<string | null> {
+// ── Pre-warmed TTS connection pool ──────────────────────────────────────
+// MsEdgeTTS opens a new WebSocket to Microsoft Edge servers on setMetadata(),
+// which adds ~800ms latency. We pre-create instances so the first request
+// gets a warm connection, and each use triggers pre-warming the next one.
+const warmTTS = new Map<string, Promise<MsEdgeTTS | null>>();
+
+function preWarmTTS(voiceName: string): void {
+  if (warmTTS.has(voiceName)) return;
+  try {
+    const tts = new MsEdgeTTS();
+    warmTTS.set(
+      voiceName,
+      tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3)
+        .then(() => tts)
+        .catch(() => { warmTTS.delete(voiceName); return null; })
+    );
+  } catch {
+    // Ignore warm-up failures — will create fresh on demand
+  }
+}
+
+// Eagerly warm the most-used voices on cold start
+for (const voice of new Set(Object.values(VOICE_MAP))) {
+  preWarmTTS(voice);
+}
+
+async function getReadyTTS(voiceName: string): Promise<MsEdgeTTS> {
+  // Grab pre-warmed instance
+  const warm = warmTTS.get(voiceName);
+  warmTTS.delete(voiceName);
+
+  // Pre-warm the NEXT instance immediately (for future requests)
+  preWarmTTS(voiceName);
+
+  if (warm) {
+    try {
+      const instance = await warm;
+      if (instance) return instance;
+    } catch {
+      // Warm instance failed — fall through to fresh
+    }
+  }
+
+  // Fallback: create fresh instance
   const tts = new MsEdgeTTS();
   await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+  return tts;
+}
+
+async function generateSpeech(voiceName: string, text: string): Promise<string | null> {
+  const tts = await getReadyTTS(voiceName);
   const { audioStream } = tts.toStream(text);
 
   const chunks: Buffer[] = [];
