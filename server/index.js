@@ -25,6 +25,8 @@ const app = express();
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'http://localhost:3000',
+  'https://artisans-loom.vercel.app',
+  'https://artisans-loom.vercel.app/',
 ];
 app.use(cors({
   origin: (origin, callback) => {
@@ -103,6 +105,7 @@ async function sendServerEmail(to, subject, title, body) {
 
 const server = http.createServer(app);
 const io = new Server(server, {
+  path: '/socket.io/',
   cors: {
     origin: allowedOrigins,
     methods: ["GET", "POST"]
