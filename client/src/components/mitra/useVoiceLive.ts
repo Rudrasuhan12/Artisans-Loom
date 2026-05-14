@@ -66,7 +66,11 @@ export interface UseVoiceLiveReturn {
 
 export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
   const {
-    serverUrl = `ws://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3001/voice`,
+    serverUrl = (() => {
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001');
+      // Convert http(s):// to ws(s)://
+      return base.replace(/^http/, 'ws') + '/voice';
+    })(),
     onTranscript,
     onAction,
     onSpeakingChange,
