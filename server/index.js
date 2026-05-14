@@ -367,5 +367,9 @@ cron.schedule('* * * * *', async () => {
 // Every hour: Generate a new spotlight
 cron.schedule('0 * * * *', () => generateAutomatedStory());
 
+// ── Gemini Live Voice WebSocket ──────────────────────────────────────────
+const { mountVoiceLive } = require('./voice-live');
+mountVoiceLive(server);
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
