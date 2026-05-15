@@ -56,6 +56,7 @@ export interface UseVoiceLiveReturn {
   sendText: (text: string) => void;
   sendIdentify: (data: { email?: string; name?: string }) => void;
   isConnected: boolean;
+  isConnecting: boolean;
   isReady: boolean;
   isSpeaking: boolean;
   userTranscript: string;
@@ -80,6 +81,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [userTranscript, setUserTranscript] = useState('');
@@ -207,6 +209,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
 
   const connect = useCallback(async (role?: string, name?: string) => {
     if (wsRef.current) return;
+    setIsConnecting(true);
 
     // Start mic capture IN PARALLEL with the WS connection to save 1-2 seconds
     const micPromise = startMicCapture().catch((err: any) => {
@@ -225,6 +228,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
     ws.onopen = async () => {
       console.log('[VoiceLive] Connected to server');
       setIsConnected(true);
+      setIsConnecting(false);
       const micGranted = await micPromise;
       if (micGranted === false) {
         ws.close();
@@ -296,6 +300,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
     ws.onclose = () => {
       console.log('[VoiceLive] Disconnected');
       setIsConnected(false);
+      setIsConnecting(false);
       setIsReady(false);
       setIsSpeaking(false);
       stopMicCapture();
@@ -304,6 +309,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
 
     ws.onerror = (err) => {
       console.error('[VoiceLive] WebSocket error:', err);
+      setIsConnecting(false);
       onError?.('Voice connection failed. Is the server running on port 3001?');
     };
   }, [serverUrl, startMicCapture, stopMicCapture, playAudioChunk, onTranscript, onAction, onReady, onEnded, onError]);
@@ -334,6 +340,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
     playbackCtxRef.current?.close().catch(() => {});
     playbackCtxRef.current = null;
     setIsConnected(false);
+    setIsConnecting(false);
     setIsReady(false);
     setIsSpeaking(false);
     userFullTranscriptRef.current = '';
@@ -357,6 +364,7 @@ export function useVoiceLive(options: UseVoiceLiveOptions): UseVoiceLiveReturn {
     sendText,
     sendIdentify,
     isConnected,
+    isConnecting,
     isReady,
     isSpeaking,
     userTranscript,
