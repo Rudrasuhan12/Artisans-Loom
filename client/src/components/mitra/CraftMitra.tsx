@@ -479,11 +479,21 @@ export default function CraftMitra() {
     }
 
     // Already open — toggle mic
-    if (useLiveVoice && voiceLive.isConnected) {
-      voiceLive.disconnect();
-      try { recognitionRef.current?.stop(); } catch(e) {}
-      setIsListening(false);
-      hasGeminiSpokenRef.current = false;
+    if (useLiveVoice) {
+      if (voiceLive.isConnected || voiceLive.isConnecting) {
+        voiceLive.disconnect();
+        try { recognitionRef.current?.stop(); } catch(e) {}
+        setIsListening(false);
+        hasGeminiSpokenRef.current = false;
+      } else {
+        // Reconnect if it disconnected unexpectedly
+        const name = session?.user?.name?.split(' ')[0] || "Traveler";
+        setReply(`Reconnecting Mitra Live... 🎙️`);
+        voiceLive.connect((session?.user as any)?.role, session?.user?.name || undefined);
+        setTranscript("");
+        setInterimTranscript("");
+        transcriptRef.current = "";
+      }
       return;
     }
 
@@ -1032,27 +1042,30 @@ export default function CraftMitra() {
                     {chatHistory.map((msg, i) => (
                       <div
                         key={i}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                        className={`flex flex-col gap-2 ${msg.role === "user" ? "items-end" : "items-start"}`}
                       >
-                        <div
-                          className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
-                            msg.role === "user"
-                              ? "bg-[#D4AF37] text-[#1A1D2E] rounded-br-md"
-                              : "bg-white/8 text-[#E5DCCA] border border-white/8 rounded-bl-md"
-                          }`}
-                        >
-                          <p
-                            className={`text-sm leading-relaxed ${
-                              msg.role === "mitra" ? "italic font-serif" : "font-medium"
+                        {/* Hide the long chat text bubble if we are showing product cards to save space in text mode */}
+                        {!(msg.visualType === "PRODUCT" && msg.role === "mitra") && (
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                              msg.role === "user"
+                                ? "bg-[#D4AF37] text-[#1A1D2E] rounded-br-[4px]"
+                                : "bg-white/10 text-[#E5DCCA] border border-white/10 rounded-bl-[4px]"
                             }`}
                           >
-                            {msg.text}
-                          </p>
-                        </div>
+                            <p
+                              className={`text-sm leading-relaxed ${
+                                msg.role === "mitra" ? "italic font-serif" : "font-medium"
+                              }`}
+                            >
+                              {msg.text}
+                            </p>
+                          </div>
+                        )}
                         
                         {/* Render visual data inline with the message if it exists */}
                         {msg.visualData && msg.visualType === "PRODUCT" && (
-                          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 mt-2 w-full max-w-full items-stretch">
+                          <div className="flex gap-3 overflow-x-auto pb-3 w-full max-w-full items-stretch hide-scrollbar snap-x snap-mandatory">
                             {(() => {
                               const allProds = Array.isArray(msg.visualData) ? msg.visualData : [msg.visualData];
                               const isExpanded = expandedChatMsgs[i];
@@ -1177,17 +1190,27 @@ export default function CraftMitra() {
                 <div className="flex-1 min-h-0 flex flex-col items-center justify-between overflow-y-auto overscroll-none px-4 py-2 w-full [&::-webkit-scrollbar]:hidden">
                   
                   {/* Top Area: Visual cards */}
-                  <div className="flex-1 min-h-0 w-full flex items-end justify-center pb-4">
+                  <div className="flex-1 w-full flex flex-col justify-end pb-4 pt-4">
                     <AnimatePresence>
                       {visualData && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: "auto", opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          className="w-full flex justify-center shrink-0"
+                          className="w-full shrink-0 relative flex flex-col items-center"
                         >
+                          <button
+                            onClick={() => {
+                              setVisualData(null);
+                              setVisualType(null);
+                            }}
+                            className="mb-2 bg-white/10 text-[#D4AF37] p-1 rounded-full hover:bg-white/20 border border-white/10 transition-colors cursor-pointer"
+                            aria-label="Close visual cards"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                           {visualType === "PRODUCT" && (
-                            <div className="flex gap-4 overflow-x-auto p-3 items-stretch w-full justify-center max-w-full">
+                            <div className="flex gap-4 overflow-x-auto p-3 items-stretch w-full sm:justify-center snap-x snap-mandatory">
                               {(() => {
                                 const allProds = Array.isArray(visualData) ? visualData : [visualData];
                                 const visibleProds = isVoiceExpanded ? allProds : allProds.slice(0, 3);
@@ -1315,11 +1338,27 @@ export default function CraftMitra() {
                   <div className="shrink-0 my-2">
                     <motion.div layout className="relative shrink-0">
                       {/* LIVE badge */}
-                      {voiceLive.isConnected && (
+                      {voiceLive.isConnecting ? (
+                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-yellow-500/90 backdrop-blur-sm text-[#1A1D2E] text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-lg">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          CONNECTING...
+                        </div>
+                      ) : voiceLive.isConnected ? (
                         <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-lg">
                           <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                           LIVE
                         </div>
+                      ) : useLiveVoice && (
+                        <button
+                          onClick={() => {
+                            const name = session?.user?.name?.split(' ')[0] || "Traveler";
+                            setReply(`Reconnecting Mitra Live... 🎙️`);
+                            voiceLive.connect((session?.user as any)?.role, session?.user?.name || undefined);
+                          }}
+                          className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-red-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-lg hover:bg-red-600 transition-colors cursor-pointer"
+                        >
+                          OFFLINE - RETRY
+                        </button>
                       )}
                       <motion.div
                         animate={{
@@ -1333,11 +1372,18 @@ export default function CraftMitra() {
                         transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
                         className={`${
                           visualData ? "w-20 h-20 sm:w-28 sm:h-28" : "w-36 h-36 sm:w-48 sm:h-48"
-                        } rounded-full bg-gradient-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] flex items-center justify-center border-4 border-white/20 transition-all duration-500`}
+                        } rounded-full bg-gradient-to-b from-[#F3E5AB] via-[#D4AF37] to-[#8B6508] flex items-center justify-center border-4 border-white/20 transition-all duration-500 relative`}
                       >
-                        {(isListening || voiceLive.isConnected) ? (
+                        {(isSpeaking || voiceLive.isSpeaking) ? (
+                          <div className={`flex items-center gap-1.5 ${visualData ? "h-6 sm:h-8" : "h-12 sm:h-16"}`}>
+                            <motion.div animate={{ height: ["40%", "100%", "40%"] }} transition={{ duration: 0.5, repeat: Infinity, ease: "easeInOut" }} className="w-1.5 sm:w-2 bg-[#2F334F] rounded-full" />
+                            <motion.div animate={{ height: ["20%", "80%", "20%"] }} transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }} className="w-1.5 sm:w-2 bg-[#2F334F] rounded-full" />
+                            <motion.div animate={{ height: ["60%", "100%", "60%"] }} transition={{ duration: 0.4, repeat: Infinity, ease: "easeInOut", delay: 0.2 }} className="w-1.5 sm:w-2 bg-[#2F334F] rounded-full" />
+                            <motion.div animate={{ height: ["30%", "90%", "30%"] }} transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut", delay: 0.3 }} className="w-1.5 sm:w-2 bg-[#2F334F] rounded-full" />
+                          </div>
+                        ) : (isListening || voiceLive.isConnected) && !voiceLive.isConnecting ? (
                           <Mic className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F]`} />
-                        ) : isProcessing ? (
+                        ) : (isProcessing || voiceLive.isConnecting) ? (
                           <Loader2 className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F] animate-spin`} />
                         ) : (
                           <Sparkles className={`${visualData ? "w-8 h-8" : "w-12 h-12"} text-[#2F334F]`} />
@@ -1447,14 +1493,19 @@ export default function CraftMitra() {
                   <div className="flex-1 flex justify-center">
                     <Button
                       onClick={toggleListening}
+                      disabled={voiceLive.isConnecting}
                       className={`h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full shadow-2xl transition-all border-4 cursor-pointer ${
-                        isListening
+                        (isListening || voiceLive.isConnected)
                           ? "bg-red-500 border-red-400 scale-105 shadow-red-500/40"
+                          : voiceLive.isConnecting
+                          ? "bg-yellow-500 border-yellow-400 scale-105 opacity-80"
                           : "bg-[#D4AF37] border-[#D4AF37]/60 hover:border-white/30"
                       }`}
                     >
-                      {isListening ? (
+                      {(isListening || voiceLive.isConnected) ? (
                         <div className="w-6 h-6 bg-white rounded-sm animate-pulse" />
+                      ) : voiceLive.isConnecting ? (
+                        <Loader2 className="w-8 h-8 text-[#2F334F] animate-spin" />
                       ) : (
                         <Mic className="w-8 h-8 text-[#2F334F]" />
                       )}

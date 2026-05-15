@@ -138,7 +138,7 @@ export async function POST(req: Request) {
       Cart Status: ${cartSummary || "empty"}
 
       -- CAPABILITIES (INTENTS) --
-      1. **SEARCH:** Find products. Extract filters: { query, maxPrice, category, region }.
+      1. **SEARCH:** Find products. Extract filters: { query, minPrice, maxPrice, category, region }.
          Hindi triggers: "दिखाओ", "खोजो", "ढूंढो", "चाहिए"
          Odia triggers: "dekhao", "kichhi dekhao", "dikhao"
       2. **BUY_PRODUCT:** User wants to buy specific item. Extract { productName }.
@@ -184,7 +184,11 @@ export async function POST(req: Request) {
     if (ai.intent === "SEARCH" || message.toLowerCase().includes("show me") || message.toLowerCase().includes("recommend")) {
       const filters: any = {};
 
-      if (ai.data?.maxPrice) filters.price = { lte: parseFloat(ai.data.maxPrice) };
+      if (ai.data?.minPrice || ai.data?.maxPrice) {
+        filters.price = {};
+        if (ai.data?.minPrice) filters.price.gte = parseFloat(ai.data.minPrice);
+        if (ai.data?.maxPrice) filters.price.lte = parseFloat(ai.data.maxPrice);
+      }
       if (ai.data?.category) filters.category = { contains: ai.data.category, mode: "insensitive" };
 
       let regionFilter = {};

@@ -51,6 +51,7 @@ const SHOPPING_TOOLS = [
           type: 'OBJECT',
           properties: {
             query: { type: 'STRING', description: 'Search query (product name, category, or keyword)' },
+            minPrice: { type: 'NUMBER', description: 'Minimum price filter in INR' },
             maxPrice: { type: 'NUMBER', description: 'Maximum price filter in INR' },
             category: { type: 'STRING', description: 'Category filter (e.g. Saree, Pottery, Jewelry)' },
             region: { type: 'STRING', description: 'Indian state/region filter' },
@@ -123,7 +124,11 @@ async function executeTool(name, args) {
     switch (name) {
       case 'search_products': {
         const filters = {};
-        if (args.maxPrice) filters.price = { lte: parseFloat(args.maxPrice) };
+        if (args.minPrice || args.maxPrice) {
+          filters.price = {};
+          if (args.minPrice) filters.price.gte = parseFloat(args.minPrice);
+          if (args.maxPrice) filters.price.lte = parseFloat(args.maxPrice);
+        }
         if (args.category) filters.category = { contains: args.category, mode: 'insensitive' };
 
         let regionFilter = {};
@@ -152,7 +157,12 @@ async function executeTool(name, args) {
 
         if (products.length === 0) {
           // Respect price filter in fallback — don't show ₹12,500 items when user asked for under ₹2000
-          const fallbackWhere = args.maxPrice ? { price: { lte: parseFloat(args.maxPrice) } } : {};
+          const fallbackWhere = {};
+          if (args.minPrice || args.maxPrice) {
+            fallbackWhere.price = {};
+            if (args.minPrice) fallbackWhere.price.gte = parseFloat(args.minPrice);
+            if (args.maxPrice) fallbackWhere.price.lte = parseFloat(args.maxPrice);
+          }
           const fallback = await prisma.product.findMany({
             where: fallbackWhere,
             take: 12, // Also fetch 12 for fallback
@@ -162,7 +172,8 @@ async function executeTool(name, args) {
           if (fallback.length > 0) {
             return { products: fallback, message: 'No exact match for your query, but here are popular items in your budget' };
           }
-          return { products: [], message: `No products found${args.maxPrice ? ` under ₹${args.maxPrice}` : ''}. Try a different search or higher budget.` };
+          const rangeMsg = (args.minPrice && args.maxPrice) ? ` between ₹${args.minPrice} and ₹${args.maxPrice}` : args.maxPrice ? ` under ₹${args.maxPrice}` : args.minPrice ? ` over ₹${args.minPrice}` : '';
+          return { products: [], message: `No products found${rangeMsg}. Try a different search or alter your budget.` };
         }
         return { products };
       }
